@@ -5,53 +5,47 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+// DÜZELTME: Bağlantıyı bileşenin DIŞINDA kuruyoruz.
+// Böylece "Multiple Instance" hatası ve titreme bitecek.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);
 
-  // Supabase bağlantısı
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
   useEffect(() => {
     const fetchCredits = async () => {
-      console.log("🔍 Kredi kontrolü başlıyor...");
-
       // 1. Oturumu kontrol et
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (authError) {
-        console.error("❌ Oturum hatası:", authError.message);
-        return;
-      }
+      if (session?.user) {
+        // 2. Veritabanından çek
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("id", session.user.id)
+          .single();
 
-      if (!session?.user) {
-        console.warn("⚠️ Kullanıcı girişi yapılmamış.");
-        return;
-      }
-
-      console.log("👤 Kullanıcı bulundu:", session.user.id);
-
-      // 2. Veritabanından çek
-      const { data, error: dbError } = await supabase
-        .from("profiles") // <-- Tablo adın farklı olabilir mi? (users?)
-        .select("credits")
-        .eq("id", session.user.id)
-        .single();
-
-      if (dbError) {
-        console.error("❌ Veritabanı hatası:", dbError.message);
-        console.log("💡 İPUCU: Tablo adı yanlış olabilir veya RLS (güvenlik) izni eksik olabilir.");
-      } else {
-        console.log("✅ Kredi bilgisi geldi:", data);
-        if (data) setCredits(data.credits);
+        if (error) {
+          console.error("❌ Veri çekilemedi:", error.message);
+        } else {
+          // Gelen veriyi konsola AÇIK şekilde yazdırıyoruz (Object yerine içini görelim)
+          console.log("💰 CÜZDAN:", JSON.stringify(data));
+          
+          // Eğer data varsa krediyi set et, yoksa 0 yap
+          if (data) {
+             // Veritabanında kolon adı 'credits' mi 'credit' mi? Buradan anlarız.
+            setCredits(data.credits); 
+          }
+        }
       }
     };
 
     fetchCredits();
-  }, [supabase]);
+  }, []); // Bağımlılık dizisi boş kalsın, sadece ilk açılışta çalışsın
 
   const menuItems = [
     { name: "Ana Panel", href: "/dashboard", icon: "🏠" },
@@ -88,13 +82,16 @@ export default function Sidebar() {
           })}
         </nav>
       </div>
+      
+      {/* KREDİ KUTUSU */}
       <div className="bg-gray-900 rounded-xl p-4 mt-4 border border-gray-800">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs text-gray-400">Kalan Kredi</span>
         </div>
         <div className="flex justify-between items-end">
           <span className="text-2xl font-bold text-white">
-            {credits !== null ? credits : "-"}
+            {/* Eğer null ise (yükleniyorsa) ... göster, değilse sayıyı göster */}
+            {credits !== null ? credits : "..."}
           </span>
           <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors">
             Yükle
