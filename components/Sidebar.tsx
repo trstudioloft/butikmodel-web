@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-// DEĞİŞİKLİK BURADA: Hazır helper yerine standart kütüphaneyi kullanıyoruz
 import { createClient } from "@supabase/supabase-js";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);
 
-  // Supabase istemcisini manuel oluşturuyoruz
-  // Not: Bu değişkenlerin .env dosyasında olduğunu varsayıyoruz
+  // Supabase bağlantısı
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -19,20 +17,36 @@ export default function Sidebar() {
 
   useEffect(() => {
     const fetchCredits = async () => {
-      // Önce oturum açmış kullanıcıyı bul
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log("🔍 Kredi kontrolü başlıyor...");
+
+      // 1. Oturumu kontrol et
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
       
-      if (session?.user) {
-        // Kullanıcı varsa kredisini çek
-        const { data } = await supabase
-          .from("profiles")
-          .select("credits")
-          .eq("id", session.user.id)
-          .single();
-        
-        if (data) {
-          setCredits(data.credits);
-        }
+      if (authError) {
+        console.error("❌ Oturum hatası:", authError.message);
+        return;
+      }
+
+      if (!session?.user) {
+        console.warn("⚠️ Kullanıcı girişi yapılmamış.");
+        return;
+      }
+
+      console.log("👤 Kullanıcı bulundu:", session.user.id);
+
+      // 2. Veritabanından çek
+      const { data, error: dbError } = await supabase
+        .from("profiles") // <-- Tablo adın farklı olabilir mi? (users?)
+        .select("credits")
+        .eq("id", session.user.id)
+        .single();
+
+      if (dbError) {
+        console.error("❌ Veritabanı hatası:", dbError.message);
+        console.log("💡 İPUCU: Tablo adı yanlış olabilir veya RLS (güvenlik) izni eksik olabilir.");
+      } else {
+        console.log("✅ Kredi bilgisi geldi:", data);
+        if (data) setCredits(data.credits);
       }
     };
 
