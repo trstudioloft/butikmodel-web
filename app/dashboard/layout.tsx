@@ -22,7 +22,7 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans">
+    <div className="min-h-screen bg-transparent flex font-sans">
       
       {/* SOL SIDEBAR (Masaüstü) */}
       <aside className="hidden md:flex flex-col w-64 bg-black text-white min-h-screen fixed left-0 top-0 z-50">
