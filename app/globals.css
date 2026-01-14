@@ -8,7 +8,6 @@
   --background-end-rgb: 255, 255, 255;
 }
 
-/* Aurora arka planının görünmesi için body şeffaf olmalı */
 body {
   color: rgb(var(--foreground-rgb));
   background: transparent;
