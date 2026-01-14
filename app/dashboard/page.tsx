@@ -66,4 +66,48 @@ export default function Dashboard() {
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
               </span>
             </div>
-            <div className="w-14 h-14 bg-blue-5
+            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition duration-300">
+              <span className="text-3xl">👗</span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition">AI Manken</h3>
+            <p className="text-sm text-gray-500 mb-6">Kıyafet fotoğraflarınızı yükleyin, yapay zeka saniyeler içinde gerçek mankenlere giydirsin.</p>
+            <div className="flex items-center text-blue-600 font-bold text-sm">
+              Oluştur →
+            </div>
+          </Link>
+
+          {/* KART 2: HAYALET MANKEN (Yakında) */}
+          <div className="group relative bg-gray-50 rounded-2xl p-6 border border-gray-200 opacity-70 cursor-not-allowed">
+            <div className="absolute top-4 right-4 bg-gray-200 text-gray-500 text-xs font-bold px-2 py-1 rounded">YAKINDA</div>
+            <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-6 shadow-sm">
+              <span className="text-3xl">👻</span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Hayalet Manken</h3>
+            <p className="text-sm text-gray-500 mb-6">Mankeni fotoğraftan silin, sadece kıyafetin 3D duruşu kalsın.</p>
+          </div>
+
+          {/* KART 3: METİN YAZARI (Yakında) */}
+          <div className="group relative bg-gray-50 rounded-2xl p-6 border border-gray-200 opacity-70 cursor-not-allowed">
+            <div className="absolute top-4 right-4 bg-gray-200 text-gray-500 text-xs font-bold px-2 py-1 rounded">YAKINDA</div>
+            <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-6 shadow-sm">
+              <span className="text-3xl">✍️</span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Metin Yazarı</h3>
+            <p className="text-sm text-gray-500 mb-6">Ürün fotoğrafını yükleyin, SEO uyumlu satış açıklamasını yapay zeka yazsın.</p>
+          </div>
+
+          {/* KART 4: STÜDYO (Yakında) */}
+          <div className="group relative bg-gray-50 rounded-2xl p-6 border border-gray-200 opacity-70 cursor-not-allowed">
+            <div className="absolute top-4 right-4 bg-gray-200 text-gray-500 text-xs font-bold px-2 py-1 rounded">YAKINDA</div>
+            <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-6 shadow-sm">
+              <span className="text-3xl">📸</span>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Arka Plan</h3>
+            <p className="text-sm text-gray-500 mb-6">Kötü çekilmiş fotoğrafları profesyonel stüdyo ortamına taşıyın.</p>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  );
+}
