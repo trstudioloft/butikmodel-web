@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase bağlantısını dışarıda kuruyoruz (Sabit kalsın)
+// Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -13,24 +13,24 @@ const supabase = createClient(
 
 export default function Sidebar() {
   const pathname = usePathname();
-  // Başlangıçta null değil, 0 da değil, özel bir durum
-  const [credits, setCredits] = useState<any>("⏳"); 
+  // Başlangıçta kum saati koyduk ki kodun değiştiğini anla
+  const [credits, setCredits] = useState<any>("⏳");
 
   useEffect(() => {
     const fetchCredits = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("profiles")
           .select("credits")
           .eq("id", session.user.id)
           .single();
 
         if (data) {
-          console.log("💰 Veri Güncellendi:", data.credits);
-          // Gelen veriyi zorla sayıya çevirip ekrana basıyoruz
-          setCredits(Number(data.credits)); 
+          // Gelen veriyi konsola bas
+          console.log("💰 CÜZDAN GÜNCELLENDİ:", data.credits);
+          setCredits(data.credits);
         }
       }
     };
@@ -78,7 +78,7 @@ export default function Sidebar() {
       <div className="bg-gray-900 rounded-xl p-4 mt-4 border border-gray-800">
         <div className="flex justify-between items-center mb-2">
           {/* İsim değişti: Kodun çalıştığını buradan anlayacağız */}
-          <span className="text-xs text-gray-400">Kredi Bakiyesi</span>
+          <span className="text-xs text-gray-400 font-bold text-blue-400">CANLI BAKİYE</span>
         </div>
         <div className="flex justify-between items-end">
           <span className="text-2xl font-bold text-white">
