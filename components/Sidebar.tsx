@@ -3,21 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+// DEĞİŞİKLİK BURADA: Hazır helper yerine standart kütüphaneyi kullanıyoruz
+import { createClient } from "@supabase/supabase-js";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);
-  const supabase = createClientComponentClient();
+
+  // Supabase istemcisini manuel oluşturuyoruz
+  // Not: Bu değişkenlerin .env dosyasında olduğunu varsayıyoruz
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     const fetchCredits = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      // Önce oturum açmış kullanıcıyı bul
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Kullanıcı varsa kredisini çek
         const { data } = await supabase
-          .from("profiles") // Tablo adın 'profiles' veya 'users' olabilir, kontrol ederiz
+          .from("profiles")
           .select("credits")
-          .eq("id", user.id)
+          .eq("id", session.user.id)
           .single();
         
         if (data) {
@@ -25,6 +35,7 @@ export default function Sidebar() {
         }
       }
     };
+
     fetchCredits();
   }, [supabase]);
 
