@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Background from "@/components/Background";
-// Yeni oluşturduğumuz Sidebar'ı çağırıyoruz
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Sidebar"; // <-- İŞTE YENİ PARÇA BURADA
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,18 +18,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.className} relative min-h-screen flex`}>
-        {/* Işıklar En Arkada */}
+      <body className={`${inter.className} relative flex min-h-screen overflow-hidden`}>
+        {/* 1. IŞIKLAR (EN ARKADA) */}
         <Background />
 
-        {/* Sidebar: Sol Menü */}
-        {/* Not: Login sayfasında Sidebar görünmesin istersen buraya ilerde ayar yaparız */}
+        {/* 2. SOL MENÜ (AKILLI BİLEŞEN) */}
+        {/* Artık kodlar burada değil, Sidebar.tsx dosyasından geliyor */}
         <Sidebar />
-
-        {/* Ana İçerik */}
-        <div className="flex-1 relative z-10 p-8">
+        
+        {/* 3. ANA İÇERİK (SAĞ TARAFTAKİ ALAN) */}
+        <main className="flex-1 relative z-10 overflow-y-auto h-screen">
           {children}
-        </div>
+        </main>
       </body>
     </html>
   );
