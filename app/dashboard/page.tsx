@@ -19,13 +19,12 @@ export default function Dashboard() {
               </button>
            </div>
         </div>
-        {/* Dekoratif Arka Plan */}
         <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-10 translate-y-10">
            <span className="text-9xl">⚡️</span>
         </div>
       </div>
 
-      {/* İSTATİSTİKLER */}
+      {/* İSTATİSTİKLER (Şimdilik statik) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
          <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
             <p className="text-gray-500 text-xs font-bold uppercase">Toplam Üretim</p>
@@ -54,17 +53,18 @@ export default function Dashboard() {
              <p className="text-gray-500 text-sm mt-2">Kıyafetleri mankenlere giydir.</p>
           </Link>
           
+          {/* HAYALET MANKEN (GÜNCELLENDİ: ARTIK AKTİF) */}
+          <Link href="/dashboard/ghost" className="group bg-white p-6 rounded-2xl border border-gray-200 hover:border-purple-500 hover:shadow-lg transition cursor-pointer">
+             <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl mb-4">👻</div>
+             <h3 className="font-bold text-lg">Hayalet Manken</h3>
+             <p className="text-gray-500 text-sm mt-2">Mankeni fotoğraftan sil.</p>
+          </Link>
+
           <Link href="/dashboard/my-models" className="group bg-white p-6 rounded-2xl border border-gray-200 hover:border-blue-500 hover:shadow-lg transition cursor-pointer">
-             <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl mb-4">👤</div>
+             <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl mb-4">👤</div>
              <h3 className="font-bold text-lg">Kendi Yüzün</h3>
              <p className="text-gray-500 text-sm mt-2">Kendi fotoğrafını manken yap.</p>
           </Link>
-
-          <div className="group bg-white p-6 rounded-2xl border border-gray-200 opacity-60 cursor-not-allowed">
-             <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-2xl mb-4">✍️</div>
-             <h3 className="font-bold text-lg">Metin Yazarı</h3>
-             <p className="text-gray-500 text-sm mt-2">Ürün açıklaması oluştur.</p>
-          </div>
       </div>
 
     </div>
