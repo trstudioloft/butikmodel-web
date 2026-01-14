@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// Background bileşenini içe aktar
+// Arka plan bileşenini içeri çağırıyoruz
 import Background from "@/components/Background";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Butikmodel.ai - Yapay Zeka Manken Stüdyosu",
-  description: "E-ticaret fotoğraflarınızı saniyeler içinde profesyonel mankenli çekimlere dönüştürün.",
+  title: "Butikmodel.ai",
+  description: "Yapay Zeka Manken Stüdyosu",
 };
 
 export default function RootLayout({
@@ -17,13 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className="h-full">
-      {/* body'ye 'relative' veriyoruz ki background onun arkasında kalsın */}
-      <body className={`${inter.className} h-full relative`}>
-        {/* Arka Planı en başa koyuyoruz */}
+    <html lang="tr">
+      <body className={`${inter.className} relative min-h-screen overflow-x-hidden`}>
+        {/* Işıklar burada yanacak */}
         <Background />
         
-        {/* Diğer tüm içerik bunun üzerine gelecek */}
+        {/* Site içeriği bunun üstünde duracak */}
         <div className="relative z-10">
           {children}
         </div>
