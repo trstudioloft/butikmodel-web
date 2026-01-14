@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// Arka plan bileşenini içeri çağırıyoruz
 import Background from "@/components/Background";
+// Yeni oluşturduğumuz Sidebar'ı çağırıyoruz
+import Sidebar from "@/components/Sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,12 +19,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.className} relative min-h-screen overflow-x-hidden`}>
-        {/* Işıklar burada yanacak */}
+      <body className={`${inter.className} relative min-h-screen flex`}>
+        {/* Işıklar En Arkada */}
         <Background />
-        
-        {/* Site içeriği bunun üstünde duracak */}
-        <div className="relative z-10">
+
+        {/* Sidebar: Sol Menü */}
+        {/* Not: Login sayfasında Sidebar görünmesin istersen buraya ilerde ayar yaparız */}
+        <Sidebar />
+
+        {/* Ana İçerik */}
+        <div className="flex-1 relative z-10 p-8">
           {children}
         </div>
       </body>
