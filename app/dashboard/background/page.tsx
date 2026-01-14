@@ -1,0 +1,1 @@
+export default function BackgroundPage() { return <div className="text-white p-10">Arka Plan Stüdyosu (Yakında)</div> }

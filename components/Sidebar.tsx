@@ -13,14 +13,16 @@ const supabase = createClient(
 
 export default function Sidebar() {
   const pathname = usePathname();
-  // Başlangıçta kum saati koyduk ki kodun değiştiğini anla
+  // Başlangıçta kum saati var, kod çalışınca değişecek
   const [credits, setCredits] = useState<any>("⏳");
 
   useEffect(() => {
     const fetchCredits = async () => {
+      // 1. Oturumu kontrol et
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
+        // 2. Veriyi çek
         const { data } = await supabase
           .from("profiles")
           .select("credits")
@@ -28,8 +30,7 @@ export default function Sidebar() {
           .single();
 
         if (data) {
-          // Gelen veriyi konsola bas
-          console.log("💰 CÜZDAN GÜNCELLENDİ:", data.credits);
+          // Veri geldiyse state'i güncelle
           setCredits(data.credits);
         }
       }
@@ -77,8 +78,8 @@ export default function Sidebar() {
       {/* KREDİ KUTUSU */}
       <div className="bg-gray-900 rounded-xl p-4 mt-4 border border-gray-800">
         <div className="flex justify-between items-center mb-2">
-          {/* İsim değişti: Kodun çalıştığını buradan anlayacağız */}
-          <span className="text-xs text-gray-400 font-bold text-blue-400">CANLI BAKİYE</span>
+          {/* İsim değişti: Kodun yeni olduğunu buradan anlayacağız */}
+          <span className="text-xs text-blue-400 font-bold">CÜZDAN</span>
         </div>
         <div className="flex justify-between items-end">
           <span className="text-2xl font-bold text-white">
