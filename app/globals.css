@@ -2,7 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Arka planın şeffaf olmasına izin ver */
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
 body {
-  background: transparent;
+  color: rgb(var(--foreground-rgb));
+  background: transparent; /* Arka planı şeffaf yapıyoruz ki Aurora görünsün */
 }
