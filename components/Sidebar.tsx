@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// DÜZELTME: Bağlantıyı bileşenin DIŞINDA kuruyoruz.
-// Böylece "Multiple Instance" hatası ve titreme bitecek.
+// Supabase bağlantısını dışarıda kuruyoruz (Sabit kalsın)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -14,38 +13,30 @@ const supabase = createClient(
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [credits, setCredits] = useState<number | null>(null);
+  // Başlangıçta null değil, 0 da değil, özel bir durum
+  const [credits, setCredits] = useState<any>("⏳"); 
 
   useEffect(() => {
     const fetchCredits = async () => {
-      // 1. Oturumu kontrol et
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // 2. Veritabanından çek
         const { data, error } = await supabase
           .from("profiles")
           .select("credits")
           .eq("id", session.user.id)
           .single();
 
-        if (error) {
-          console.error("❌ Veri çekilemedi:", error.message);
-        } else {
-          // Gelen veriyi konsola AÇIK şekilde yazdırıyoruz (Object yerine içini görelim)
-          console.log("💰 CÜZDAN:", JSON.stringify(data));
-          
-          // Eğer data varsa krediyi set et, yoksa 0 yap
-          if (data) {
-             // Veritabanında kolon adı 'credits' mi 'credit' mi? Buradan anlarız.
-            setCredits(data.credits); 
-          }
+        if (data) {
+          console.log("💰 Veri Güncellendi:", data.credits);
+          // Gelen veriyi zorla sayıya çevirip ekrana basıyoruz
+          setCredits(Number(data.credits)); 
         }
       }
     };
 
     fetchCredits();
-  }, []); // Bağımlılık dizisi boş kalsın, sadece ilk açılışta çalışsın
+  }, []);
 
   const menuItems = [
     { name: "Ana Panel", href: "/dashboard", icon: "🏠" },
@@ -86,12 +77,12 @@ export default function Sidebar() {
       {/* KREDİ KUTUSU */}
       <div className="bg-gray-900 rounded-xl p-4 mt-4 border border-gray-800">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-xs text-gray-400">Kalan Kredi</span>
+          {/* İsim değişti: Kodun çalıştığını buradan anlayacağız */}
+          <span className="text-xs text-gray-400">Kredi Bakiyesi</span>
         </div>
         <div className="flex justify-between items-end">
           <span className="text-2xl font-bold text-white">
-            {/* Eğer null ise (yükleniyorsa) ... göster, değilse sayıyı göster */}
-            {credits !== null ? credits : "..."}
+            {credits}
           </span>
           <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors">
             Yükle
