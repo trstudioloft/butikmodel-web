@@ -1,164 +1,255 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 
 export default function MyModelsPage() {
-  const [user, setUser] = useState<any>(null);
-  const [faces, setFaces] = useState<any[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [myModels, setMyModels] = useState<any[]>([]);
+  
+  // Manken Oluşturma Parametreleri
+  const [attributes, setAttributes] = useState({
+    gender: "Kadın",
+    age: "Genç (20-25)",
+    ethnicity: "Türk / Akdeniz",
+    hairColor: "Kahverengi",
+    hairStyle: "Uzun Düz",
+    eyeColor: "Ela",
+    bodyType: "Standart Manken"
+  });
 
-  // 1. Sayfa açılınca verileri çek
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [modelName, setModelName] = useState("");
+
+  // Mevcut Mankenleri Çek
   useEffect(() => {
-    async function getData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      setUser(user);
+    fetchModels();
+  }, []);
 
-      // Kayıtlı yüzleri getir
+  const fetchModels = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
       const { data } = await supabase
         .from("user_models")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+      if (data) setMyModels(data);
+    }
+  };
 
-      if (data) setFaces(data);
+  // Manken Üret (Şimdilik Demo)
+  const handleGenerate = async () => {
+    setLoading(true);
+    // Burası ileride API'ye bağlanacak ve gerçek manken üretecek.
+    // Şimdilik vizyonu görmek için senin tarifine göre prompt oluşturuyoruz.
+    const prompt = `Professional studio portrait of a ${attributes.age} year old ${attributes.ethnicity} ${attributes.gender}, ${attributes.hairStyle} ${attributes.hairColor} hair, ${attributes.eyeColor} eyes, ${attributes.bodyType}, hyper realistic, 8k, fashion photography`;
+    
+    console.log("Oluşturulacak Prompt:", prompt);
+    
+    // SİMÜLASYON: 3 saniye bekle ve örnek bir resim göster
+    setTimeout(() => {
+      // Rastgele gerçekçi bir portre (Demo amaçlı)
+      const demoImages = [
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=500&fit=crop",
+        "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=500&h=500&fit=crop",
+        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&h=500&fit=crop"
+      ];
+      setGeneratedImage(demoImages[Math.floor(Math.random() * demoImages.length)]);
       setLoading(false);
-    }
-    getData();
-  }, [router]);
+    }, 2500);
+  };
 
-  // 2. Yeni Yüz Yükleme Fonksiyonu
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0]) return;
-    const file = event.target.files[0];
-    setUploading(true);
+  // Mankeni Kaydet
+  const handleSave = async () => {
+    if (!generatedImage || !modelName) return alert("Lütfen mankene bir isim verin!");
+    setSaving(true);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    try {
-      // A. Dosyayı Storage'a Yükle
-      const fileExt = file.name.split('.').pop();
-      const fileName = `face-${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('uploads').upload(fileName, file);
-      if (uploadError) throw uploadError;
+    const { error } = await supabase.from("user_models").insert({
+      user_id: user.id,
+      name: modelName,
+      image_url: generatedImage,
+      attributes: attributes
+    });
 
-      // B. Public Linki Al
-      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(fileName);
-
-      // C. Veritabanına Kaydet
-      const { data: newFace, error: dbError } = await supabase
-        .from("user_models")
-        .insert({
-          user_id: user.id,
-          image_url: publicUrl,
-          name: `Yüz ${faces.length + 1}` // Otomatik isim ver
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Listeyi Güncelle (Sayfayı yenilemeden ekrana gelsin)
-      setFaces([newFace, ...faces]);
-      alert("✅ Yeni yüz eklendi!");
-
-    } catch (error: any) {
+    if (error) {
       alert("Hata: " + error.message);
-    } finally {
-      setUploading(false);
+    } else {
+      alert("Manken koleksiyonuna eklendi! 🎉");
+      setGeneratedImage(null);
+      setModelName("");
+      fetchModels(); // Listeyi yenile
     }
+    setSaving(false);
   };
 
-  // 3. Yüz Silme Fonksiyonu
   const handleDelete = async (id: string) => {
-    if (!confirm("Bu yüzü silmek istediğine emin misin?")) return;
-
-    try {
-      const { error } = await supabase.from("user_models").delete().eq("id", id);
-      if (error) throw error;
-
-      // Listeden çıkar
-      setFaces(faces.filter(face => face.id !== id));
-    } catch (error: any) {
-      alert("Silme hatası: " + error.message);
-    }
+    if(!confirm("Bu mankeni silmek istediğine emin misin?")) return;
+    await supabase.from("user_models").delete().eq("id", id);
+    fetchModels();
   };
-
-  if (loading) return <div className="p-8">Yükleniyor...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mankenlerim (Yüzlerim)</h1>
-          <p className="text-gray-500">Kendi fotoğraflarınızı buraya kaydedin, üretim yaparken tek tıkla kullanın.</p>
-        </div>
-        
-        {/* Gizli Input ve Buton */}
-        <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" accept="image/*" />
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="bg-black text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shadow-lg flex items-center justify-center gap-2"
-        >
-          {uploading ? "Yükleniyor..." : "+ Yeni Yüz Ekle"}
-        </button>
+    <div className="p-8 min-h-screen pb-20 font-sans">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Karakter Fabrikası 🧬</h1>
+        <p className="text-gray-500 mt-2">Kendi özel yapay zeka mankenini tasarla ve koleksiyonuna ekle.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Yükle Butonu (Kart Görünümlü) */}
-        <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center aspect-square text-gray-400 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition cursor-pointer bg-white"
-        >
-           <span className="text-4xl mb-2">{uploading ? "⏳" : "+"}</span>
-           <span className="text-sm font-bold">{uploading ? "Kaydediliyor" : "Yeni Ekle"}</span>
-        </div>
+        {/* SOL: AYAR PANELİ (4 birim) */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">Fiziksel Özellikler</h3>
+            
+            <div className="space-y-4">
+              {/* Cinsiyet */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Cinsiyet</label>
+                <select 
+                  className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                  value={attributes.gender}
+                  onChange={(e) => setAttributes({...attributes, gender: e.target.value})}
+                >
+                  <option>Kadın</option>
+                  <option>Erkek</option>
+                </select>
+              </div>
 
-        {/* Yüklenmiş Yüzler Listesi */}
-        {faces.map((face) => (
-          <div key={face.id} className="group relative bg-white rounded-2xl p-2 border border-gray-200 shadow-sm hover:shadow-md transition">
-            <div className="aspect-square rounded-xl overflow-hidden mb-2 relative">
-               <img src={face.image_url} className="w-full h-full object-cover" />
-               
-               {/* Silme Butonu (Hover olunca çıkar) */}
-               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                  <button 
-                    onClick={() => handleDelete(face.id)}
-                    className="text-white text-xs bg-red-600 px-3 py-1.5 rounded-full font-bold hover:bg-red-700"
-                  >
-                    Sil 🗑️
-                  </button>
-               </div>
+              {/* Köken */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Etnik Köken</label>
+                <select 
+                  className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                  value={attributes.ethnicity}
+                  onChange={(e) => setAttributes({...attributes, ethnicity: e.target.value})}
+                >
+                  <option>Türk / Akdeniz</option>
+                  <option>Kuzey Avrupa (Sarışın)</option>
+                  <option>Doğu Asya</option>
+                  <option>Afro-Amerikan</option>
+                  <option>Latin</option>
+                </select>
+              </div>
+
+              {/* Yaş */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Yaş Grubu</label>
+                <select 
+                  className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                  value={attributes.age}
+                  onChange={(e) => setAttributes({...attributes, age: e.target.value})}
+                >
+                  <option>Genç (18-24)</option>
+                  <option>Yetişkin (25-35)</option>
+                  <option>Olgun (35-45)</option>
+                </select>
+              </div>
+
+              {/* Saç & Göz */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 mb-1">Saç Rengi</label>
+                   <select className="w-full p-2 bg-gray-50 rounded-lg border text-sm" onChange={(e) => setAttributes({...attributes, hairColor: e.target.value})}>
+                     <option>Kahverengi</option>
+                     <option>Siyah</option>
+                     <option>Sarı</option>
+                     <option>Kızıl</option>
+                   </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 mb-1">Göz Rengi</label>
+                   <select className="w-full p-2 bg-gray-50 rounded-lg border text-sm" onChange={(e) => setAttributes({...attributes, eyeColor: e.target.value})}>
+                     <option>Ela</option>
+                     <option>Kahve</option>
+                     <option>Mavi</option>
+                     <option>Yeşil</option>
+                   </select>
+                </div>
+              </div>
+
             </div>
-            <p className="text-xs font-bold text-gray-900 text-center truncate px-2">{face.name}</p>
-            <p className="text-[10px] text-gray-400 text-center">{new Date(face.created_at).toLocaleDateString()}</p>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full mt-6 bg-black text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition-all flex justify-center items-center gap-2"
+            >
+              {loading ? "Laboratuvarda İşleniyor..." : "⚡️ Mankeni Oluştur"}
+            </button>
           </div>
-        ))}
-
-      </div>
-
-      {faces.length === 0 && !uploading && (
-        <div className="mt-12 text-center py-10 bg-gray-100 rounded-2xl">
-           <span className="text-4xl block mb-2">🤳</span>
-           <p className="text-gray-500">Henüz hiç yüz yüklemediniz.</p>
         </div>
-      )}
 
-      {/* BİLGİ KUTUSU */}
-      <div className="mt-12 bg-blue-50 border border-blue-100 rounded-2xl p-6 flex gap-4 items-start">
-        <div className="text-2xl">💡</div>
-        <div>
-          <h4 className="font-bold text-blue-900">İyi bir sonuç için ipuçları</h4>
-          <ul className="text-sm text-blue-800 mt-2 space-y-1 list-disc list-inside">
-            <li>Yüzün net göründüğü, aydınlık fotoğraflar kullanın.</li>
-            <li>Gözlük veya şapka takmamaya çalışın.</li>
-            <li>Doğrudan kameraya baktığınız pozlar en iyi sonucu verir.</li>
-          </ul>
+        {/* ORTA: ÖNİZLEME (4 birim) */}
+        <div className="lg:col-span-4 flex flex-col">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col items-center justify-center min-h-[400px] relative">
+            {loading ? (
+              <div className="text-center">
+                <div className="animate-spin text-4xl mb-2">🧬</div>
+                <p className="text-gray-500 text-sm">DNA dizilimi yapılıyor...</p>
+              </div>
+            ) : generatedImage ? (
+              <div className="w-full h-full flex flex-col items-center">
+                <img src={generatedImage} className="rounded-lg shadow-lg w-full h-auto object-cover max-h-[400px]" />
+                
+                <div className="w-full mt-4 space-y-3">
+                  <input 
+                    type="text" 
+                    placeholder="Mankene bir isim ver (Örn: Ece)" 
+                    className="w-full p-3 border rounded-lg text-sm"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-all"
+                  >
+                    {saving ? "Kaydediliyor..." : "💾 Koleksiyona Kaydet"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <span className="text-6xl opacity-20 block mb-2">👤</span>
+                <p>Özellikleri seç ve oluştur'a bas.</p>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* SAĞ: KOLEKSİYON (4 birim) */}
+        <div className="lg:col-span-4">
+          <h3 className="font-bold text-gray-900 mb-4">Kayıtlı Mankenlerim ({myModels.length})</h3>
+          <div className="grid grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
+            {myModels.map((model) => (
+              <div key={model.id} className="relative group bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                <img src={model.image_url} className="w-full aspect-square object-cover" />
+                <div className="p-3">
+                  <p className="font-bold text-sm text-gray-800 truncate">{model.name}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{model.attributes?.ethnicity}, {model.attributes?.age}</p>
+                </div>
+                <button 
+                  onClick={() => handleDelete(model.id)}
+                  className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            
+            {myModels.length === 0 && (
+              <div className="col-span-2 text-center py-10 text-gray-400 text-sm border-2 border-dashed rounded-xl">
+                Henüz mankenin yok.
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
