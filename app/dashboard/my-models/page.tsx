@@ -8,7 +8,7 @@ export default function MyModelsPage() {
   const [saving, setSaving] = useState(false);
   const [myModels, setMyModels] = useState<any[]>([]);
   
-  // Manken Oluşturma Parametreleri
+  // GÜNCELLENMİŞ Manken Parametreleri (Kilo ve Boy eklendi)
   const [attributes, setAttributes] = useState({
     gender: "Kadın",
     age: "Genç (20-25)",
@@ -16,13 +16,13 @@ export default function MyModelsPage() {
     hairColor: "Kahverengi",
     hairStyle: "Uzun Düz",
     eyeColor: "Ela",
-    bodyType: "Standart Manken"
+    bodySize: "Fit / Atletik", // YENİ: Vücut Tipi
+    height: "Orta Boy"         // YENİ: Boy
   });
 
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [modelName, setModelName] = useState("");
 
-  // Mevcut Mankenleri Çek
   useEffect(() => {
     fetchModels();
   }, []);
@@ -38,29 +38,33 @@ export default function MyModelsPage() {
     }
   };
 
-  // Manken Üret (Şimdilik Demo)
   const handleGenerate = async () => {
     setLoading(true);
-    // Burası ileride API'ye bağlanacak ve gerçek manken üretecek.
-    // Şimdilik vizyonu görmek için senin tarifine göre prompt oluşturuyoruz.
-    const prompt = `Professional studio portrait of a ${attributes.age} year old ${attributes.ethnicity} ${attributes.gender}, ${attributes.hairStyle} ${attributes.hairColor} hair, ${attributes.eyeColor} eyes, ${attributes.bodyType}, hyper realistic, 8k, fashion photography`;
+    
+    // YENİ PROMPT MANTIĞI: Seçilen kiloya göre İngilizce çeviri
+    let bodyPrompt = "fit body";
+    if (attributes.bodySize === "Zayıf / İnce") bodyPrompt = "slim skinny body model";
+    if (attributes.bodySize === "Balık Etli / Kıvrımlı") bodyPrompt = "curvy volumetric body shape";
+    if (attributes.bodySize === "Büyük Beden (Plus Size)") bodyPrompt = "plus size full figure model";
+    if (attributes.bodySize === "Kaslı / Yapılı") bodyPrompt = "muscular athletic body";
+
+    const prompt = `Professional studio full body shot of a ${attributes.age} year old ${attributes.ethnicity} ${attributes.gender}, ${bodyPrompt}, ${attributes.height}, ${attributes.hairStyle} ${attributes.hairColor} hair, ${attributes.eyeColor} eyes, hyper realistic, 8k, fashion photography, neutral background`;
     
     console.log("Oluşturulacak Prompt:", prompt);
     
-    // SİMÜLASYON: 3 saniye bekle ve örnek bir resim göster
+    // SİMÜLASYON (Gerçek API bağlanana kadar)
     setTimeout(() => {
-      // Rastgele gerçekçi bir portre (Demo amaçlı)
+      // Rastgele örnekler
       const demoImages = [
         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=500&fit=crop",
-        "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=500&h=500&fit=crop",
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&h=500&fit=crop"
+        "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=500&h=500&fit=crop",
+        "https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=500&h=500&fit=crop"
       ];
       setGeneratedImage(demoImages[Math.floor(Math.random() * demoImages.length)]);
       setLoading(false);
     }, 2500);
   };
 
-  // Mankeni Kaydet
   const handleSave = async () => {
     if (!generatedImage || !modelName) return alert("Lütfen mankene bir isim verin!");
     setSaving(true);
@@ -81,7 +85,7 @@ export default function MyModelsPage() {
       alert("Manken koleksiyonuna eklendi! 🎉");
       setGeneratedImage(null);
       setModelName("");
-      fetchModels(); // Listeyi yenile
+      fetchModels();
     }
     setSaving(false);
   };
@@ -101,23 +105,55 @@ export default function MyModelsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* SOL: AYAR PANELİ (4 birim) */}
+        {/* SOL: AYAR PANELİ */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">Fiziksel Özellikler</h3>
             
             <div className="space-y-4">
-              {/* Cinsiyet */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Cinsiyet</label>
+              
+              {/* YENİ: VÜCUT TİPİ SEÇİMİ */}
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <label className="block text-xs font-bold text-blue-800 mb-1">Vücut Tipi (Kilo)</label>
                 <select 
-                  className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
-                  value={attributes.gender}
-                  onChange={(e) => setAttributes({...attributes, gender: e.target.value})}
+                  className="w-full p-2 bg-white rounded-lg border border-blue-200 text-sm font-medium"
+                  value={attributes.bodySize}
+                  onChange={(e) => setAttributes({...attributes, bodySize: e.target.value})}
                 >
-                  <option>Kadın</option>
-                  <option>Erkek</option>
+                  <option>Zayıf / İnce</option>
+                  <option>Fit / Atletik</option>
+                  <option>Balık Etli / Kıvrımlı</option>
+                  <option>Kaslı / Yapılı</option>
+                  <option>Büyük Beden (Plus Size)</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                 {/* Cinsiyet */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Cinsiyet</label>
+                  <select 
+                    className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                    value={attributes.gender}
+                    onChange={(e) => setAttributes({...attributes, gender: e.target.value})}
+                  >
+                    <option>Kadın</option>
+                    <option>Erkek</option>
+                  </select>
+                </div>
+                {/* Boy */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Boy</label>
+                  <select 
+                    className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                    value={attributes.height}
+                    onChange={(e) => setAttributes({...attributes, height: e.target.value})}
+                  >
+                    <option>Kısa</option>
+                    <option>Orta Boy</option>
+                    <option>Uzun</option>
+                  </select>
+                </div>
               </div>
 
               {/* Köken */}
@@ -133,6 +169,7 @@ export default function MyModelsPage() {
                   <option>Doğu Asya</option>
                   <option>Afro-Amerikan</option>
                   <option>Latin</option>
+                  <option>Arap / Orta Doğu</option>
                 </select>
               </div>
 
@@ -159,6 +196,7 @@ export default function MyModelsPage() {
                      <option>Siyah</option>
                      <option>Sarı</option>
                      <option>Kızıl</option>
+                     <option>Gri / Beyaz</option>
                    </select>
                 </div>
                 <div>
@@ -179,22 +217,27 @@ export default function MyModelsPage() {
               disabled={loading}
               className="w-full mt-6 bg-black text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition-all flex justify-center items-center gap-2"
             >
-              {loading ? "Laboratuvarda İşleniyor..." : "⚡️ Mankeni Oluştur"}
+              {loading ? "Genetik Kod İşleniyor..." : "⚡️ Mankeni Oluştur"}
             </button>
           </div>
         </div>
 
-        {/* ORTA: ÖNİZLEME (4 birim) */}
+        {/* ORTA: ÖNİZLEME */}
         <div className="lg:col-span-4 flex flex-col">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col items-center justify-center min-h-[400px] relative">
             {loading ? (
               <div className="text-center">
                 <div className="animate-spin text-4xl mb-2">🧬</div>
-                <p className="text-gray-500 text-sm">DNA dizilimi yapılıyor...</p>
+                <p className="text-gray-500 text-sm">Mankenin özellikleri yükleniyor...</p>
               </div>
             ) : generatedImage ? (
               <div className="w-full h-full flex flex-col items-center">
-                <img src={generatedImage} className="rounded-lg shadow-lg w-full h-auto object-cover max-h-[400px]" />
+                <div className="relative w-full">
+                  <img src={generatedImage} className="rounded-lg shadow-lg w-full h-auto object-cover max-h-[400px]" />
+                  <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                    {attributes.bodySize}
+                  </div>
+                </div>
                 
                 <div className="w-full mt-4 space-y-3">
                   <input 
@@ -216,13 +259,13 @@ export default function MyModelsPage() {
             ) : (
               <div className="text-center text-gray-400">
                 <span className="text-6xl opacity-20 block mb-2">👤</span>
-                <p>Özellikleri seç ve oluştur'a bas.</p>
+                <p>Sol taraftan özellikleri seç.</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* SAĞ: KOLEKSİYON (4 birim) */}
+        {/* SAĞ: KOLEKSİYON */}
         <div className="lg:col-span-4">
           <h3 className="font-bold text-gray-900 mb-4">Kayıtlı Mankenlerim ({myModels.length})</h3>
           <div className="grid grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
@@ -231,7 +274,9 @@ export default function MyModelsPage() {
                 <img src={model.image_url} className="w-full aspect-square object-cover" />
                 <div className="p-3">
                   <p className="font-bold text-sm text-gray-800 truncate">{model.name}</p>
-                  <p className="text-[10px] text-gray-500 truncate">{model.attributes?.ethnicity}, {model.attributes?.age}</p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {model.attributes?.bodySize || "Standart"}, {model.attributes?.age}
+                  </p>
                 </div>
                 <button 
                   onClick={() => handleDelete(model.id)}
