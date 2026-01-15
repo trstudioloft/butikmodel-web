@@ -356,8 +356,8 @@ export default function Home() {
                   <span className="font-bold text-gray-900">butikmodel.com</span> © 2026
                </div>
                <div className="flex gap-8">
-                  <a href="#" className="hover:text-gray-900 transition-colors">Gizlilik</a>
-                  <a href="#" className="hover:text-gray-900 transition-colors">Şartlar</a>
+                  <a href="/legal/privacy" className="hover:text-gray-900 transition-colors">Gizlilik</a>
+                  <a href="/legal/terms" className="hover:text-gray-900 transition-colors">Şartlar</a>
                   <a href="#" className="hover:text-gray-900 transition-colors">İletişim</a>
                </div>
             </div>
