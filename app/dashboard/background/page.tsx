@@ -9,13 +9,14 @@ export default function BackgroundPage() {
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   
-  // Çoklu Dosya Yönetimi
+  // Dosya Yönetimi
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [results, setResults] = useState<string[]>([]);
   
-  // Atmosfer Seçimi
+  // Ayarlar
+  const [shootMode, setShootMode] = useState<'model' | 'product'>('model'); // YENİ: İnsan mı Nesne mi?
   const [selectedTheme, setSelectedTheme] = useState("stüdyo");
-  const [customPrompt, setCustomPrompt] = useState(""); // YENİ: Kullanıcının Yazdığı Prompt
+  const [customPrompt, setCustomPrompt] = useState(""); 
   const [consistencyMode, setConsistencyMode] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,18 +42,15 @@ export default function BackgroundPage() {
     setResults([]);
   };
 
-  // Bir hazır tema seçildiğinde prompt kutusunu da ona göre dolduralım mı?
-  // İstersen doldurabiliriz ama şimdilik sadece seçimi güncelleyelim.
   const handleThemeSelect = (id: string) => {
     setSelectedTheme(id);
-    // Eğer kullanıcı "Özel" yazmak yerine butona basarsa, kutuyu temizle veya varsayılanı kullan
     if (id !== 'custom') setCustomPrompt(""); 
   };
 
   const handleProcess = async () => {
     if (uploadedFiles.length === 0 || !user) return;
     setProcessing(true);
-    setStatusMessage("Sahne analizi yapılıyor...");
+    setStatusMessage("Fotoğraftaki kişi analiz ediliyor...");
 
     try {
       const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
@@ -64,28 +62,35 @@ export default function BackgroundPage() {
         return;
       }
 
-      // HANGİ PROMPT KULLANILACAK?
-      // Eğer kullanıcı kutuya bir şey yazdıysa O geçerli. Yazmadıysa seçilen tema.
-      const finalPrompt = customPrompt.trim().length > 0 
+      // AKILLI PROMPT MANTIĞI 🧠
+      // Mod 'model' ise: "Fashion photography of a model..."
+      // Mod 'product' ise: "Product photography of an object..."
+      
+      const subject = shootMode === 'model' ? "fashion model wearing the clothes" : "product object";
+      const basePrompt = customPrompt.trim().length > 0 
         ? customPrompt 
-        : `Professional product photography in ${selectedTheme} environment`;
+        : `Professional ${selectedTheme} background`;
 
-      console.log("🚀 Yapay Zekaya Giden Emir:", finalPrompt);
+      const finalPrompt = `High quality photography of a ${subject}. Background: ${basePrompt}. Keep the subject exactly as is, change background only.`;
 
-      setTimeout(() => setStatusMessage(consistencyMode ? "Işık ve ortam eşitleniyor..." : "Sahneler oluşturuluyor..."), 1500);
+      console.log("🚀 Yapay Zeka Emri:", finalPrompt);
+
+      setTimeout(() => setStatusMessage(consistencyMode ? "Tüm pozlar aynı mekana taşınıyor..." : "Mekan değiştiriliyor..."), 1500);
       
       setTimeout(async () => {
         if (profile) {
             await supabase.from("profiles").update({ credits: profile.credits - requiredCredits }).eq("id", user.id);
         }
         
-        // Demo Sonuçlar
+        // Demo Sonuçlar (İnsanlı moda çekimi örnekleri)
         const demoResults = uploadedFiles.map(() => 
-          "https://images.unsplash.com/photo-1550614000-4b9519e02a48?w=500&h=500&fit=crop" 
+          shootMode === 'model' 
+             ? "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop" // Model Örneği
+             : "https://images.unsplash.com/photo-1549388604-817d15aa0110?w=600&h=800&fit=crop" // Ürün Örneği
         );
         
         setResults(demoResults);
-        setStatusMessage(`✅ ${uploadedFiles.length} Fotoğraf İşlendi!`);
+        setStatusMessage(`✅ İşlem Tamamlandı!`);
         setProcessing(false);
       }, 4000);
 
@@ -99,28 +104,47 @@ export default function BackgroundPage() {
     <div className="p-8 min-h-screen font-sans pb-20">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Atmosfer Sihirbazı 🎨</h1>
-        <p className="text-gray-500 mt-2">Dükkanda çektiğin ürünleri tek tıkla profesyonel stüdyoya veya hayalindeki mekana taşı.</p>
+        <p className="text-gray-500 mt-2">Kıyafeti giy, fotoğrafını çek, arka planı saniyeler içinde değiştir.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* SOL: AYARLAR (1 birim) */}
+        {/* SOL: AYARLAR */}
         <div className="space-y-6">
           
-          {/* 1. MEKAN SEÇİMİ (Prompt veya Buton) */}
+          {/* 0. ÇEKİM MODU (YENİ) */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex p-1 gap-1">
+             <button 
+               onClick={() => setShootMode('model')}
+               className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${shootMode === 'model' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+             >
+               👤 Manken / İnsan
+             </button>
+             <button 
+               onClick={() => setShootMode('product')}
+               className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${shootMode === 'product' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+             >
+               👜 Sadece Ürün
+             </button>
+          </div>
+
+          {/* 1. MEKAN SEÇİMİ */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="font-bold text-gray-800 mb-4">Mekan & Atmosfer</h3>
             
-            {/* YENİ: Özel Prompt Alanı 🚀 */}
+            {/* Özel Prompt */}
             <div className="mb-6">
-                <label className="text-xs font-bold text-gray-500 mb-2 block uppercase tracking-wider">Senin Tarifin (Özel)</label>
+                <label className="text-xs font-bold text-gray-500 mb-2 block uppercase tracking-wider">
+                  {shootMode === 'model' ? "Özel Sahne Tarifi" : "Ürün Sahne Tarifi"}
+                </label>
                 <textarea 
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="Örn: Ahşap bir masanın üzerinde, arkada şömine ateşi, sıcak ve loş bir dağ evi ortamı..."
+                    placeholder={shootMode === 'model' 
+                      ? "Örn: Paris sokaklarında yürürken, arkada flu mağazalar, güneşli bir gün..." 
+                      : "Örn: Mermer bir masa üzerinde, yanında kuru çiçekler, minimalist ortam..."}
                     className="w-full p-3 border border-gray-300 rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-black focus:border-transparent outline-none shadow-sm"
                 />
-                <p className="text-[10px] text-gray-400 mt-1 text-right">Türkçe yazabilirsin, AI anlayacaktır.</p>
             </div>
 
             <div className="flex items-center gap-2 mb-4">
@@ -131,11 +155,11 @@ export default function BackgroundPage() {
 
             <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
               {[
-                {id: 'stüdyo', name: 'Minimal Stüdyo (Beyaz)', icon: '📸'},
-                {id: 'paris', name: 'Paris Sokakları', icon: '🇫🇷'},
-                {id: 'luxury', name: 'Lüks Mağaza Vitrini', icon: '💎'},
-                {id: 'nature', name: 'Doğa & Orman', icon: '🌿'},
-                {id: 'industrial', name: 'Endüstriyel Beton', icon: '🏭'},
+                {id: 'stüdyo', name: 'Minimal Stüdyo (Gri/Beyaz)', icon: '📸'},
+                {id: 'street', name: 'Şehir & Sokak Modası', icon: '🏙️'},
+                {id: 'cafe', name: 'Butik Cafe Ortamı', icon: '☕'},
+                {id: 'luxury', name: 'Lüks Mağaza İçi', icon: '✨'},
+                {id: 'nature', name: 'Doğa & Gün Işığı', icon: '🌿'},
               ].map(theme => (
                 <div 
                   key={theme.id}
@@ -148,20 +172,6 @@ export default function BackgroundPage() {
                 </div>
               ))}
             </div>
-            {customPrompt !== "" && <p className="text-xs text-green-600 mt-2 font-medium text-center">✨ Özel tarifin kullanılacak.</p>}
-          </div>
-
-          {/* 2. Tutarlılık Ayarı */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-800 mb-2">Tutarlılık Modu</h3>
-            <p className="text-xs text-gray-500 mb-4">Seri çekimlerde (örn. katalog) tüm ürünler aynı ışıkta olsun.</p>
-            
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div className={`w-12 h-6 rounded-full p-1 transition-colors ${consistencyMode ? 'bg-green-500' : 'bg-gray-300'}`} onClick={() => setConsistencyMode(!consistencyMode)}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${consistencyMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
-              </div>
-              <span className="text-sm font-bold">{consistencyMode ? "Açık" : "Kapalı"}</span>
-            </label>
           </div>
 
           {/* İşlem Butonu */}
@@ -171,10 +181,10 @@ export default function BackgroundPage() {
             className="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform flex flex-col items-center justify-center"
           >
             {processing ? (
-                <span>Büyü Yapılıyor...</span>
+                <span>Sihir Uygulanıyor...</span>
             ) : (
                 <>
-                    <span>✨ Dönüştür</span>
+                    <span>✨ {shootMode === 'model' ? "Mankeni Işınla" : "Arkaplanı Değiştir"}</span>
                     <span className="text-[10px] opacity-70 font-normal mt-1">{uploadedFiles.length || 0} Fotoğraf = {uploadedFiles.length || 0} Kredi</span>
                 </>
             )}
@@ -182,29 +192,26 @@ export default function BackgroundPage() {
 
         </div>
 
-        {/* SAĞ: GALERİ (2 birim) */}
+        {/* SAĞ: GALERİ */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* Yükleme Alanı */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
              <div className="flex justify-between items-center mb-4">
-               <h3 className="font-bold text-gray-800">Fotoğraflar ({uploadedFiles.length}/5)</h3>
+               <h3 className="font-bold text-gray-800">
+                 {shootMode === 'model' ? "Manken Fotoğrafları" : "Ürün Fotoğrafları"} ({uploadedFiles.length}/5)
+               </h3>
                <button onClick={() => {setUploadedFiles([]); setResults([]);}} className="text-xs text-red-500 hover:underline font-medium">Temizle</button>
              </div>
              
              <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
-               {/* Yükle Butonu */}
                {uploadedFiles.length < 5 && (
-                 <div onClick={() => fileInputRef.current?.click()} className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors group">
+                 <div onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors group">
                    <input type="file" multiple ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
                    <span className="text-2xl text-gray-400 group-hover:scale-110 transition-transform">+</span>
-                   <span className="text-xs text-gray-500 font-bold mt-1">Ekle</span>
+                   <span className="text-xs text-gray-500 font-bold mt-1">Yükle</span>
                  </div>
                )}
-
-               {/* Yüklenenler */}
                {uploadedFiles.map((src, i) => (
-                 <div key={i} className="aspect-square rounded-xl overflow-hidden relative border border-gray-200 group">
+                 <div key={i} className="aspect-[3/4] rounded-xl overflow-hidden relative border border-gray-200 group">
                    <img src={src} className="w-full h-full object-cover" />
                    <div className="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center">
                         <span className="text-white text-xs font-bold">#{i+1}</span>
@@ -214,17 +221,15 @@ export default function BackgroundPage() {
              </div>
           </div>
 
-          {/* Sonuç Alanı */}
           {results.length > 0 && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 animate-in slide-in-from-bottom-4">
               <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                 ✅ Sonuçlar
-                <span className="text-xs font-normal text-gray-500">(Otomatik olarak galeriye kaydedildi)</span>
+                <span className="text-xs font-normal text-gray-500">(Galeriye kaydedildi)</span>
               </h3>
-              
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {results.map((src, i) => (
-                  <div key={i} className="group relative aspect-square rounded-xl overflow-hidden shadow-sm">
+                  <div key={i} className="group relative aspect-[3/4] rounded-xl overflow-hidden shadow-sm">
                     <img src={src} className="w-full h-full object-cover" />
                     <a href={src} download className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                       <span className="bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 transition-transform">⬇️ İndir</span>
@@ -237,7 +242,7 @@ export default function BackgroundPage() {
           
           {processing && (
             <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-               <div className="text-4xl animate-bounce mb-4">🎨</div>
+               <div className="text-4xl animate-bounce mb-4">📸</div>
                <p className="text-gray-500 font-medium">{statusMessage}</p>
             </div>
           )}
