@@ -18,9 +18,11 @@ export default function StudioPage() {
   
   // Manken Yönetimi (3 KATEGORİ)
   const [activeTab, setActiveTab] = useState<'system' | 'generated' | 'face'>('system');
-  const [systemModels, setSystemModels] = useState<any[]>([]);
-  const [userModels, setUserModels] = useState<any[]>([]);
-  // const [faceModels, setFaceModels] = useState<any[]>([]); // İleride eklenecek
+  
+  const [systemModels, setSystemModels] = useState<any[]>([]); // Hazır Havuz
+  const [userModels, setUserModels] = useState<any[]>([]);     // Lab (Yapay)
+  const [customFaceModels, setCustomFaceModels] = useState<any[]>([]); // Dijital İkizler (YENİ)
+  
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,19 +35,16 @@ export default function StudioPage() {
       setUser(session.user);
 
       // 1. HAZIR HAVUZU ÇEK
-      const { data: sysData } = await supabase
-        .from("system_models")
-        .select("*")
-        .order("name");
+      const { data: sysData } = await supabase.from("system_models").select("*").order("name");
       if (sysData) setSystemModels(sysData);
 
-      // 2. KULLANICININ ÜRETTİKLERİNİ ÇEK
-      const { data: usrData } = await supabase
-        .from("user_models")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false });
+      // 2. LABORATUVAR MANKENLERİNİ ÇEK
+      const { data: usrData } = await supabase.from("user_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
       if (usrData) setUserModels(usrData);
+
+      // 3. DİJİTAL İKİZLERİ ÇEK (YENİ)
+      const { data: faceData } = await supabase.from("custom_face_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+      if (faceData) setCustomFaceModels(faceData);
     }
     initData();
   }, [router]);
@@ -54,7 +53,6 @@ export default function StudioPage() {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
     setUploadedImage(URL.createObjectURL(file));
-    // Demo upload simülasyonu
     setUploadedPath("demo_path.jpg"); 
   };
 
@@ -64,8 +62,8 @@ export default function StudioPage() {
     setStatusMessage("Senaryo oluşturuluyor...");
 
     try {
-      // Seçilen mankenin detaylarını bul (Hangi listedeyse oradan al)
-      const allModels = [...systemModels, ...userModels];
+      // Seçilen mankeni bul
+      const allModels = [...systemModels, ...userModels, ...customFaceModels];
       const targetModel = allModels.find(m => m.id === selectedModel);
       
       const finalPrompt = `Professional photo of model (${targetModel?.name}) wearing the uploaded cloth. Scene: ${userPrompt || "Studio"}.`;
@@ -73,7 +71,6 @@ export default function StudioPage() {
 
       setStatusMessage("Sahne kuruluyor: " + (userPrompt || "Stüdyo Ortamı"));
       
-      // Kredi Düşme Simülasyonu
       const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
       if (profile) {
         await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
@@ -100,7 +97,7 @@ export default function StudioPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* SOL KOLON: GİRDİLER (2 birim) */}
+        {/* SOL KOLON: GİRDİLER */}
         <div className="lg:col-span-2 space-y-8">
           
           {/* ADIM 1: KIYAFET */}
@@ -122,7 +119,7 @@ export default function StudioPage() {
             </div>
           </div>
 
-          {/* ADIM 2: OYUNCU SEÇİMİ (SEKMELİ YAPI) */}
+          {/* ADIM 2: OYUNCU SEÇİMİ */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -130,14 +127,20 @@ export default function StudioPage() {
                   Manken Seçimi
                 </h3>
                 
+                {/* HIZLI EKLE BUTONLARI */}
                 {activeTab === 'generated' && (
                   <Link href="/dashboard/my-models" className="text-xs bg-black text-white px-3 py-1.5 rounded-full font-bold hover:bg-gray-800">
                     + Yeni Üret
                   </Link>
                 )}
+                {activeTab === 'face' && (
+                  <Link href="/dashboard/train-model" className="text-xs bg-black text-white px-3 py-1.5 rounded-full font-bold hover:bg-gray-800">
+                    + Yeni Yüz Tanıt
+                  </Link>
+                )}
              </div>
 
-             {/* SEKMELER (TABS) */}
+             {/* SEKMELER */}
              <div className="flex p-1 bg-gray-100 rounded-xl mb-6">
                 <button 
                   onClick={() => setActiveTab('system')}
@@ -159,7 +162,7 @@ export default function StudioPage() {
                 </button>
              </div>
 
-             {/* MANKEN LİSTESİ (DURUMA GÖRE DEĞİŞİR) */}
+             {/* MANKEN LİSTESİ */}
              <div className="min-h-[200px]">
                 
                 {/* 1. HAZIR HAVUZ */}
@@ -176,14 +179,14 @@ export default function StudioPage() {
                   </div>
                 )}
 
-                {/* 2. LABORATUVAR (KULLANICI ÜRETİMİ) */}
+                {/* 2. LABORATUVAR */}
                 {activeTab === 'generated' && (
                   userModels.length > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
                       {userModels.map((m) => (
                         <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
                           <img src={m.image_url} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">ÖZEL</div>
+                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">AI</div>
                           <div className="absolute bottom-0 w-full bg-black/60 text-white text-[10px] p-1 text-center truncate">{m.name}</div>
                         </div>
                       ))}
@@ -198,23 +201,40 @@ export default function StudioPage() {
                   )
                 )}
 
-                {/* 3. KENDİ YÜZÜM (PLACEHOLDER) */}
+                {/* 3. KENDİ YÜZÜM (YENİ) */}
                 {activeTab === 'face' && (
-                  <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                    <div className="text-4xl mb-3">🤳</div>
-                    <h4 className="font-bold text-gray-900">Yüz Yükleme Özelliği</h4>
-                    <p className="text-gray-500 text-sm mb-4 max-w-xs mx-auto">
-                      Kendi fotoğrafını veya bir arkadaşının fotoğrafını yükle, manken olarak kullan.
-                    </p>
-                    <button disabled className="bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm font-bold cursor-not-allowed">
-                      Çok Yakında
-                    </button>
-                  </div>
+                  customFaceModels.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                      {customFaceModels.map((m) => (
+                        <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
+                          <img src={m.cover_image} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">İKİZ</div>
+                          <div className="absolute bottom-0 w-full bg-black/60 text-white text-[10px] p-1 text-center truncate">{m.name}</div>
+                        </div>
+                      ))}
+                       {/* Ekleme Kartı */}
+                       <Link href="/dashboard/train-model" className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors">
+                          <span className="text-2xl text-gray-400">+</span>
+                          <span className="text-xs font-bold text-gray-500 mt-2">Yeni Yüz</span>
+                       </Link>
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                      <div className="text-4xl mb-3">🤳</div>
+                      <h4 className="font-bold text-gray-900">Dijital İkizini Yarat</h4>
+                      <p className="text-gray-500 text-sm mb-4 max-w-xs mx-auto">
+                        Kendi fotoğrafını yükle, sistem seni tanısın ve tüm kıyafetleri sana giydirsin.
+                      </p>
+                      <Link href="/dashboard/train-model" className="bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-lg">
+                        Fotoğraf Yüklemeye Başla
+                      </Link>
+                    </div>
+                  )
                 )}
              </div>
           </div>
 
-          {/* ADIM 3: SAHNE (PROMPT) */}
+          {/* ADIM 3: SAHNE */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
               <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">3</span>
@@ -223,8 +243,8 @@ export default function StudioPage() {
             <textarea 
               value={userPrompt}
               onChange={(e) => setUserPrompt(e.target.value)}
-              placeholder="Örn: Paris'te yağmurlu bir sokakta, arkada flu mağaza ışıkları..."
-              className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none min-h-[100px]"
+              placeholder="Örn: Paris'te yağmurlu bir sokakta..."
+              className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none min-h-[100px]"
             />
           </div>
 
@@ -234,7 +254,6 @@ export default function StudioPage() {
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-4">
             <h3 className="font-bold text-gray-900 mb-4">Prodüksiyon</h3>
-            
             <div className="space-y-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Kıyafet:</span>
@@ -246,25 +265,19 @@ export default function StudioPage() {
                   {selectedModel ? "✅ Seçildi" : "❌ Seçilmedi"}
                 </span>
               </div>
-              
-              <hr className="border-gray-100"/>
-
               <button 
                 onClick={handleGenerate}
                 disabled={!uploadedImage || !selectedModel || processing}
-                className="w-full bg-black text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-black text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {processing ? "Motor Çalışıyor..." : "🎬 Kayıt! (1 Kredi)"}
               </button>
             </div>
           </div>
-
           {resultImage && (
             <div className="bg-white p-4 rounded-2xl shadow-lg border border-green-100 animate-in fade-in zoom-in">
               <img src={resultImage} className="w-full rounded-lg shadow-sm" />
-              <button className="w-full mt-3 bg-gray-100 text-gray-800 py-2 rounded-lg font-bold text-xs hover:bg-gray-200">
-                Görseli İndir
-              </button>
+              <button className="w-full mt-3 bg-gray-100 text-gray-800 py-2 rounded-lg font-bold text-xs hover:bg-gray-200">Görseli İndir</button>
             </div>
           )}
         </div>
