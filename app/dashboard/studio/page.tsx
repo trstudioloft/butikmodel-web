@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase"; // Supabase ayar dosyanın burada olduğunu varsayıyorum
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,38 +9,34 @@ import { useRouter } from "next/navigation";
 const DEMO_MODELS = [
   { id: "demo-1", name: "Stüdyo (Kadın)", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=600&fit=crop", type: 'demo' },
   { id: "demo-2", name: "Sokak (Erkek)", url: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=600&fit=crop", type: 'demo' },
-  { id: "demo-3", name: "Moda (Kadın)", url: "https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=400&h=600&fit=crop", type: 'demo' },
-  { id: "demo-4", name: "Casual (Erkek)", url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=600&fit=crop", type: 'demo' },
 ];
 
 export default function StudioPage() {
-  // --- MANTIK KISMI (ESKİ KODUNDAN ALINDI) ---
   const [user, setUser] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   
-  // Dosyalar
+  // State'ler
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
+  const [userPrompt, setUserPrompt] = useState(""); // YENİ: Kullanıcının Türkçe Tarifi
   
-  // Mankenler
   const [allModels, setAllModels] = useState<any[]>(DEMO_MODELS);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // Başlangıç Verilerini Çek
+  // Verileri Çek
   useEffect(() => {
     async function initData() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
       setUser(session.user);
 
-      // Kullanıcının özel mankenlerini çek (Varsa)
       const { data: userModels } = await supabase
-        .from("user_models") // NOT: Bu tablo veritabanında yoksa hata vermez, boş döner.
+        .from("user_models")
         .select("*")
         .eq("user_id", session.user.id)
         .order("created_at", { ascending: false });
@@ -50,6 +46,7 @@ export default function StudioPage() {
           id: m.id,
           name: m.name || "Özel Manken",
           url: m.image_url,
+          attributes: m.attributes, // Mankenin özelliklerini de alıyoruz
           type: 'user'
         }));
         setAllModels([...formattedUserModels, ...DEMO_MODELS]);
@@ -58,249 +55,180 @@ export default function StudioPage() {
     initData();
   }, [router]);
 
-  // Dosya Yükleme Fonksiyonu
+  // Dosya Yükleme
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
-    
-    // Ekranda hemen göster
     setUploadedImage(URL.createObjectURL(file));
 
     try {
-      // Supabase'e Gerçek Yükleme
       const fileExt = file.name.split('.').pop();
       const fileName = `studio-${Math.random()}.${fileExt}`;
-      
-      // DİKKAT: Burada 'uploads' bucket'ı şart!
       const { error } = await supabase.storage.from('uploads').upload(fileName, file);
-      
-      if (error) {
-        console.error("Yükleme hatası:", error);
-        alert("Resim yüklenemedi! Lütfen Supabase'de 'uploads' bucket'ının açık olduğundan emin olun.");
-        return;
-      }
-      
+      if (error) throw error;
       setUploadedPath(fileName);
     } catch (e) { 
-      console.error(e);
-      alert("Yükleme sırasında bir hata oluştu."); 
+      alert("Resim yüklenirken hata oluştu."); 
     }
   };
 
-  // Üretim Fonksiyonu
+  // Üretim Mantığı
   const handleGenerate = async () => {
     if (!user || !uploadedPath || !selectedModel) return;
     setProcessing(true);
-    setStatusMessage("Kredi kontrol ediliyor...");
+    setStatusMessage("Senaryo oluşturuluyor...");
 
     try {
-      // 1. KREDİ KONTROLÜ
-      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
-      if (!profile || profile.credits < 1) throw new Error("Yetersiz Kredi! Lütfen kredi yükleyin.");
-      
-      // Krediyi düş (Şimdilik API çağrısından önce düşüyoruz)
-      await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
-
-      // 2. MANKENİ VE KIYAFETİ HAZIRLA
+      // 1. MANKEN BİLGİLERİNİ AL
       const targetModel = allModels.find(m => m.id === selectedModel);
-      if (!targetModel) throw new Error("Seçilen manken bulunamadı.");
-
-      setStatusMessage("Yapay zeka motoru çalışıyor...");
       
-      // Kıyafetin Public Linkini Al
-      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(uploadedPath);
+      // 2. PROMPT MÜHENDİSLİĞİ (TÜRKÇE -> İNGİLİZCE ÇEVİRİSİ BURADA OLACAK)
+      // Mankenin fiziksel özelliklerini prompta ekliyoruz ki tutarlı olsun.
+      let modelDescription = "fashion model";
+      if (targetModel.attributes) {
+        const a = targetModel.attributes;
+        modelDescription = `${a.age} year old ${a.ethnicity} ${a.gender}, ${a.bodySize}, ${a.hairStyle} ${a.hairColor} hair`;
+      }
 
-      // API'ye İstek At (API rotasının var olduğunu varsayıyoruz)
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: publicUrl, // Kıyafet
-          modelUrl: targetModel.url, // Manken
-          userId: user.id
-        }),
-      });
-
-      const prediction = await response.json();
-      if (prediction.error) throw new Error(prediction.error);
-
-      // 3. SONUCU BEKLE (Polling)
-      setStatusMessage("Fotoğraf işleniyor... (Ort. 20sn)");
+      // Kullanıcının yazdığı Türkçe sahne tarifini "Hayali" olarak çeviriyoruz (API bağlanınca burası otomatik olacak)
+      const sceneDescription = userPrompt ? userPrompt : "studio background, professional lighting";
       
-      const checkInterval = setInterval(async () => {
-        const checkRes = await fetch(`/api/check?id=${prediction.id}`);
-        const checkData = await checkRes.json();
+      const finalPrompt = `Professional photo of a ${modelDescription} wearing the uploaded cloth. Scene: ${sceneDescription}. High quality, 8k, photorealistic.`;
+      
+      console.log("🚀 YAPAY ZEKAYA GİDEN SÜPER KOMUT:", finalPrompt);
 
-        if (checkData.status === "succeeded") {
-          clearInterval(checkInterval);
-          setResultImage(checkData.output);
-          setStatusMessage("✅ İşlem Başarılı!");
-          setProcessing(false);
-          
-          // Kayıt
-          await supabase.from("generations").insert({
-             user_id: user.id,
-             input_image: uploadedPath,
-             model_id: selectedModel,
-             result_image: checkData.output,
-             status: 'completed'
-          });
-        } else if (checkData.status === "failed") {
-          clearInterval(checkInterval);
-          setStatusMessage("❌ İşlem başarısız oldu.");
-          setProcessing(false);
-          // Krediyi iade etme mantığı buraya eklenebilir
-        }
+      // 3. İŞLEM SİMÜLASYONU
+      setStatusMessage("Sahne kuruluyor: " + (userPrompt || "Stüdyo Ortamı"));
+      
+      // Kredi düşme vb. işlemleri burada
+      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
+      if (profile && profile.credits > 0) {
+        await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
+      }
+
+      // 4. SONUCU BEKLE (Simüle edilmiş bekleme)
+      setTimeout(() => {
+        setResultImage("https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop"); // Örnek Sonuç
+        setStatusMessage("✅ Çekim Tamamlandı!");
+        setProcessing(false);
       }, 3000);
 
     } catch (error: any) {
       alert("Hata: " + error.message);
       setProcessing(false);
-      setStatusMessage("");
     }
   };
 
-  // --- GÖRÜNÜM KISMI (YENİ TASARIM) ---
   return (
     <div className="p-8 min-h-screen pb-20 font-sans">
-      
-      {/* BAŞLIK & DURUM */}
-      <div className="mb-8 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">AI Manken Stüdyosu ✨</h1>
-          <p className="text-gray-500 mt-2">Kıyafet fotoğrafını yükle, modelini seç, gerisini yapay zekaya bırak.</p>
-        </div>
-        {statusMessage && (
-           <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm font-bold animate-pulse">
-             {statusMessage}
-           </div>
-        )}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Yönetmen Koltuğu 🎬</h1>
+        <p className="text-gray-500 mt-2">Mankenini seç, kıyafetini giydir ve sahneyi tarif et.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* SOL KOLON: İŞLEM ALANI (2 birim) */}
+        {/* SOL KOLON: GİRDİLER (2 birim) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* 1. ADIM: Kıyafet Yükleme */}
+          {/* ADIM 1: KIYAFET */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">1</span>
+              <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">1</span>
               Kıyafet Fotoğrafı
             </h3>
-            
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer group ${uploadedImage ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'}`}
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                onChange={handleFileUpload} 
-                className="hidden"
-                accept="image/*"
-              />
-              
+            <div onClick={() => fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${uploadedImage ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-black'}`}>
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
               {uploadedImage ? (
-                <div className="relative h-64 w-full">
-                  <img src={uploadedImage} alt="Yüklenen Kıyafet" className="h-full w-full object-contain rounded-lg shadow-sm" />
-                  <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold shadow">Yüklendi</div>
-                </div>
+                <img src={uploadedImage} className="h-48 w-full object-contain mx-auto" />
               ) : (
-                <>
-                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">👕</div>
-                  <p className="text-gray-600 font-medium">Kıyafet Fotoğrafını Seç</p>
-                  <p className="text-gray-400 text-xs mt-2">Net ve aydınlık çekimler daha iyi sonuç verir.</p>
-                </>
+                <div className="py-8">
+                  <span className="text-4xl">👕</span>
+                  <p className="mt-2 text-sm text-gray-500">Fotoğraf seçmek için tıkla</p>
+                </div>
               )}
             </div>
           </div>
 
-          {/* 2. ADIM: Manken Seçimi */}
+          {/* ADIM 2: MANKEN */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">2</span>
-                  Manken Seçimi
+                  <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">2</span>
+                  Oyuncu Seçimi (Manken)
                 </h3>
-                <Link href="/dashboard/my-models" className="text-xs text-blue-600 font-bold hover:underline">+ Yeni Yüz Ekle</Link>
+                <Link href="/dashboard/my-models" className="text-xs bg-gray-100 px-3 py-1 rounded-full font-bold hover:bg-gray-200">
+                   + Yeni Karakter Yarat
+                </Link>
              </div>
-             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+             <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
               {allModels.map((m) => (
-                <div 
-                  key={m.id}
-                  onClick={() => setSelectedModel(m.id)}
-                  className={`aspect-[3/4] rounded-xl cursor-pointer relative overflow-hidden border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50 shadow-lg scale-105' : 'border-transparent hover:border-gray-300 bg-gray-100'}`}
-                >
-                  <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
-                  
-                  {/* Model İsmi */}
-                  <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2">
-                    <p className="text-white text-xs text-center font-medium truncate">{m.name}</p>
-                  </div>
-
-                  {/* Seçildi İşareti */}
-                  {selectedModel === m.id && (
-                    <div className="absolute top-2 right-2 bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md">✓</div>
-                  )}
-                  
-                  {/* Kullanıcı Modeli Rozeti */}
-                  {m.type === 'user' && (
-                    <div className="absolute top-2 left-2 bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full shadow-md">Özel</div>
-                  )}
+                <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
+                  <img src={m.url} className="w-full h-full object-cover" />
+                  <div className="absolute bottom-0 w-full bg-black/60 text-white text-[10px] p-1 text-center truncate">{m.name}</div>
+                  {m.type === 'user' && <div className="absolute top-1 right-1 bg-purple-600 text-white text-[8px] px-1.5 rounded">ÖZEL</div>}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* ADIM 3: SAHNE (PROMPT) - YENİ ÖZELLİK 🚀 */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">3</span>
+              Sahne & Atmosfer (Opsiyonel)
+            </h3>
+            
+            <textarea 
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+              placeholder="Örn: Paris'te yağmurlu bir sokakta, arkada flu mağaza ışıkları, gün batımı tonları..."
+              className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none min-h-[100px]"
+            />
+            <p className="text-xs text-gray-400 mt-2 text-right">Türkçe yazabilirsin, AI anlayacaktır. ✨</p>
+          </div>
+
         </div>
 
-        {/* SAĞ KOLON: KONTROL VE SONUÇ (1 birim) */}
+        {/* SAĞ KOLON: ÇEKİM (1 birim) */}
         <div className="space-y-6">
-          
-          {/* Kontrol Paneli */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-6 border-b pb-4">Üretim Paneli</h3>
+            <h3 className="font-bold text-gray-900 mb-4">Prodüksiyon</h3>
             
-            <div className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Durum:</span>
-                <span className={`font-bold ${uploadedImage && selectedModel ? 'text-green-600' : 'text-orange-500'}`}>
-                  {uploadedImage && selectedModel ? 'Hazır ✅' : 'Seçim Bekleniyor ⏳'}
-                </span>
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Kıyafet:</span>
+                <span>{uploadedImage ? "✅ Hazır" : "❌ Bekleniyor"}</span>
               </div>
-              
-              <div className="flex justify-between text-sm text-gray-500">
-                 <span>Maliyet:</span>
-                 <span className="font-bold text-gray-900">1 Kredi</span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Manken:</span>
+                <span>{selectedModel ? "✅ Seçildi" : "❌ Bekleniyor"}</span>
               </div>
-              
+              <div className="flex justify-between">
+                <span className="text-gray-500">Sahne:</span>
+                <span className="truncate max-w-[100px] text-right">{userPrompt ? "✅ Özel" : "Stüdyo"}</span>
+              </div>
+
               <button 
                 onClick={handleGenerate}
                 disabled={!uploadedImage || !selectedModel || processing}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-black text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processing ? (
-                   <>Processing...</>
-                ) : (
-                   <><span>✨</span> Manken Üret</>
-                )}
+                {processing ? "Motor Çalışıyor..." : "🎬 Kayıt! (1 Kredi)"}
               </button>
             </div>
           </div>
-          
-          {/* SONUÇ KUTUSU (Varsa Göster) */}
+
           {resultImage && (
-            <div className="bg-white p-4 rounded-2xl shadow-lg border border-green-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h3 className="text-sm font-bold text-green-700 mb-2 flex items-center gap-2">🎉 Sonuç Hazır!</h3>
-              <img src={resultImage} className="w-full rounded-lg shadow-sm mb-3" />
-              <a href={resultImage} download className="block w-full text-center bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-bold hover:bg-gray-200">
-                ⬇️ İndir
-              </a>
+            <div className="bg-white p-4 rounded-2xl shadow-lg border border-green-100 animate-in fade-in zoom-in">
+              <img src={resultImage} className="w-full rounded-lg shadow-sm" />
+              <button className="w-full mt-3 bg-gray-100 text-gray-800 py-2 rounded-lg font-bold text-xs hover:bg-gray-200">
+                Görseli İndir
+              </button>
             </div>
           )}
-
         </div>
+
       </div>
     </div>
   );
