@@ -358,7 +358,7 @@ export default function Home() {
                <div className="flex gap-8">
                   <a href="/legal/privacy" className="hover:text-gray-900 transition-colors">Gizlilik</a>
                   <a href="/legal/terms" className="hover:text-gray-900 transition-colors">Şartlar</a>
-                  <a href="#" className="hover:text-gray-900 transition-colors">İletişim</a>
+                  <a href="/contact" className="hover:text-gray-900 transition-colors">İletişim</a>
                </div>
             </div>
          </div>
