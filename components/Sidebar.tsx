@@ -78,13 +78,15 @@ export default function Sidebar() {
       {/* KREDİ KUTUSU */}
       <div className="bg-gray-900 rounded-xl p-4 mt-4 border border-gray-800">
         <div className="flex justify-between items-center mb-2">
-          {/* İsim değişti: Kodun yeni olduğunu buradan anlayacağız */}
           <span className="text-xs text-blue-400 font-bold">CÜZDAN</span>
         </div>
         <div className="flex justify-between items-end">
-          <span className="text-2xl font-bold text-white">
-            {credits}
-          </span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-white">
+              {credits}
+            </span>
+            <span className="text-xs text-gray-400 font-medium">Kredi</span>
+          </div>
           <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors">
             Yükle
           </button>

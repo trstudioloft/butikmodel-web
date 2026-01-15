@@ -1,182 +1,139 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+
+import { useState } from "react";
 
 export default function StudioPage() {
-  const [user, setUser] = useState<any>(null);
-  const [processing, setProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState(""); // Kullanıcının hayali (Prompt)
-  const [resultImage, setResultImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [selectedCloth, setSelectedCloth] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push("/login");
-      setUser(user);
-    });
-  }, []);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0]) return;
-    const file = event.target.files[0];
-    setUploadedImage(URL.createObjectURL(file));
-
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `studio-${Math.random()}.${fileExt}`;
-      const { error } = await supabase.storage.from('uploads').upload(fileName, file);
-      if (error) throw error;
-      setUploadedPath(fileName);
-    } catch (e) { alert("Yükleme hatası"); }
-  };
-
-  const handleGenerate = async () => {
-    if (!user || !uploadedPath || !prompt) return;
-    setProcessing(true);
-    setStatusMessage("Kredi kontrol ediliyor...");
-
-    try {
-      // 1. KREDİ KONTROLÜ
-      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
-      if (!profile || profile.credits < 1) throw new Error("Yetersiz Kredi!");
-      
-      await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
-
-      // 2. İŞLEMİ BAŞLAT
-      setStatusMessage("Sahne kuruluyor...");
-      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(uploadedPath);
-
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: publicUrl,
-          type: 'studio', // TÜR: STÜDYO
-          prompt: prompt, // Kullanıcının isteği
-          userId: user.id
-        }),
-      });
-
-      const prediction = await response.json();
-      if (prediction.error) throw new Error(prediction.error);
-
-      // 3. TAKİP ET
-      setStatusMessage("Fotoğraf çekiliyor... (Yaklaşık 20sn)");
-      
-      const checkInterval = setInterval(async () => {
-        const checkRes = await fetch(`/api/check?id=${prediction.id}`);
-        const checkData = await checkRes.json();
-
-        if (checkData.status === "succeeded") {
-          clearInterval(checkInterval);
-          setResultImage(checkData.output);
-          setStatusMessage("✅ Stüdyo Çekimi Hazır!");
-          setProcessing(false);
-          
-          await supabase.from("generations").insert({
-             user_id: user.id,
-             input_image: uploadedPath,
-             result_image: checkData.output,
-             status: 'completed',
-             model_id: 'studio-mode'
-          });
-
-        } else if (checkData.status === "failed") {
-          clearInterval(checkInterval);
-          setStatusMessage("❌ İşlem başarısız.");
-          setProcessing(false);
-        }
-      }, 3000);
-
-    } catch (error: any) {
-      alert("Hata: " + error.message);
-      setProcessing(false);
-      setStatusMessage("");
+  // Dosya yükleme simülasyonu
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedCloth(URL.createObjectURL(e.target.files[0]));
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-           <Link href="/dashboard" className="text-gray-500 font-bold hover:text-black">← Geri</Link>
-           <h1 className="font-bold text-lg text-gray-800">AI Stüdyo <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full ml-2">Beta</span></h1>
-        </div>
-        <div className={`text-sm font-bold px-4 py-1.5 rounded-full transition-all ${resultImage ? "bg-green-100 text-green-700" : "bg-orange-50 text-orange-700"}`}>
-            {statusMessage || (resultImage ? "Çekim Tamamlandı" : "Hazır")}
-        </div>
+    <div className="p-8 min-h-screen pb-20">
+      {/* BAŞLIK */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">AI Manken Stüdyosu ✨</h1>
+        <p className="text-gray-500 mt-2">Kıyafet fotoğrafını yükle, modelini seç, gerisini yapay zekaya bırak.</p>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full p-6 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* SOL: AYARLAR */}
-        <div className="w-full lg:w-1/3 space-y-6">
+        {/* SOL KOLON: YÜKLEME VE SEÇİM (2 birim) */}
+        <div className="lg:col-span-2 space-y-6">
           
-          {/* 1. RESİM YÜKLE */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold mb-4 text-gray-800">1. Ürün Fotoğrafı</h3>
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl h-48 flex items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition overflow-hidden bg-gray-50 relative group">
-               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-               {uploadedImage ? (
-                 <img src={uploadedImage} className="w-full h-full object-contain" />
-               ) : (
-                 <div className="text-center">
-                    <span className="text-4xl block mb-2 opacity-30">📸</span>
-                    <span className="text-gray-500 font-medium">Fotoğraf Seç</span>
-                 </div>
-               )}
-            </div>
-          </div>
-
-          {/* 2. PROMPT GİRİŞİ */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold mb-2 text-gray-800">2. Nerede Çekilsin?</h3>
-            <p className="text-xs text-gray-400 mb-3">İngilizce yazarsanız daha iyi sonuç verir.</p>
-            <textarea 
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Örn: on a white marble table, sunlight, professional photography..."
-              className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:outline-none h-24 text-sm"
-            ></textarea>
+          {/* 1. ADIM: Kıyafet Yükleme */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="bg-blue-100 text-blue-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">1</span>
+              Kıyafet Fotoğrafı
+            </h3>
             
-            {/* Hazır Öneriler */}
-            <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
-               <button onClick={() => setPrompt("on a wooden table, cozy atmosphere")} className="text-xs bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-gray-200">🪵 Ahşap Masa</button>
-               <button onClick={() => setPrompt("on a white podium, studio lighting, minimal")} className="text-xs bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-gray-200">⬜️ Beyaz Podyum</button>
-               <button onClick={() => setPrompt("on a rock, beach background, sunny day")} className="text-xs bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap hover:bg-gray-200">🏖️ Sahil</button>
+            <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group">
+              <input 
+                type="file" 
+                onChange={handleFileChange} 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept="image/*"
+              />
+              {selectedCloth ? (
+                <div className="relative h-64 w-full">
+                  <img src={selectedCloth} alt="Seçilen Kıyafet" className="h-full w-full object-contain rounded-lg" />
+                  <button onClick={(e) => {e.preventDefault(); setSelectedCloth(null)}} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600">✕</button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">👕</div>
+                  <p className="text-gray-600 font-medium">Fotoğrafı buraya sürükle veya seç</p>
+                  <p className="text-gray-400 text-xs mt-2">JPG, PNG (Max 5MB)</p>
+                </>
+              )}
             </div>
           </div>
 
-          <button 
-            onClick={handleGenerate} 
-            disabled={!uploadedImage || !prompt || processing}
-            className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold shadow-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all active:scale-95"
-          >
-            {processing ? "Stüdyo Hazırlanıyor..." : "📸 Fotoğrafı Çek (1 Kredi)"}
-          </button>
+          {/* 2. ADIM: Manken Seçimi */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="bg-blue-100 text-blue-600 w-6 h-6 flex items-center justify-center rounded-full text-xs">2</span>
+              Manken Seçimi
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {/* Statik Mankenler (Görsel) */}
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div 
+                  key={i}
+                  onClick={() => setSelectedModel(`model-${i}`)}
+                  className={`aspect-[3/4] rounded-xl bg-gray-100 cursor-pointer relative overflow-hidden border-2 transition-all group ${selectedModel === `model-${i}` ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-300'}`}
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                    <span className="text-3xl mb-2">👤</span>
+                    <span className="text-xs font-medium">Model {i}</span>
+                  </div>
+                  {/* Seçildi Tik İşareti */}
+                  {selectedModel === `model-${i}` && (
+                    <div className="absolute top-2 right-2 bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md">✓</div>
+                  )}
+                </div>
+              ))}
+              
+              {/* Kendi Yüzünü Ekle */}
+              <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
+                <span className="text-3xl mb-1">+</span>
+                <span className="text-xs font-medium">Yüz Ekle</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* SAĞ: SONUÇ */}
-        <div className="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center justify-center min-h-[500px] relative overflow-hidden">
-           {resultImage ? (
-             <div className="relative z-10 text-center">
-                <img src={resultImage} className="max-h-[600px] shadow-2xl rounded-lg animate-in fade-in zoom-in duration-500" />
-                <a href={resultImage} download className="inline-block mt-4 bg-orange-600 text-white px-6 py-2 rounded-lg shadow-lg font-bold text-sm hover:bg-orange-700">
-                  ⬇️ İndir
-                </a>
-             </div>
-           ) : (
-             <div className="text-center text-gray-400">
-               <span className="text-6xl block mb-4 opacity-20">🏞️</span>
-               <p>{statusMessage || "Fotoğrafı yükleyin, mekanı tarif edin."}</p>
-             </div>
-           )}
+        {/* SAĞ KOLON: KONTROL PANELİ (1 birim) */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-6 border-b pb-4">Stüdyo Ayarları</h3>
+            
+            {/* Kategori */}
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Kıyafet Türü</label>
+              <div className="grid grid-cols-2 gap-2">
+                {['Elbise', 'Üst Giyim', 'Alt Giyim', 'Dış Giyim'].map((type) => (
+                  <button key={type} className="border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all">
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Prompt */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Detaylar (Opsiyonel)</label>
+              <textarea 
+                className="w-full p-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-sm h-24 resize-none"
+                placeholder="Örn: Yazlık keten kumaş, bol kesim, stüdyo ışığı..."
+              ></textarea>
+            </div>
+
+            {/* Aksiyon */}
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm text-gray-500 mb-1">
+                <span>İşlem Bedeli:</span>
+                <span className="font-bold text-gray-900">1 Kredi</span>
+              </div>
+              
+              <button className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>✨</span>
+                Manken Üret
+              </button>
+            </div>
+            
+          </div>
+          
+          {/* İpucu Kutusu */}
+          <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-xs leading-relaxed">
+            💡 <strong>İpucu:</strong> En iyi sonuç için kıyafetin düz bir zeminde veya askıda çekilmiş net bir fotoğrafını yükleyin.
+          </div>
         </div>
 
       </div>
