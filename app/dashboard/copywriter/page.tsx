@@ -1,181 +1,189 @@
 "use client";
+
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function CopywriterPage() {
   const [user, setUser] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   
-  // Sonuç bu sefer resim değil, metin olacak
-  const [resultText, setResultText] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [platform, setPlatform] = useState("instagram");
+  const [tone, setTone] = useState("samimi"); // Samimi, Kurumsal, Hype
+  const [generatedText, setGeneratedText] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push("/login");
-      setUser(user);
-    });
-  }, []);
+    async function getUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+    }
+    getUser();
+  }, [router]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
     setUploadedImage(URL.createObjectURL(file));
-
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `copy-${Math.random()}.${fileExt}`;
-      const { error } = await supabase.storage.from('uploads').upload(fileName, file);
-      if (error) throw error;
-      setUploadedPath(fileName);
-    } catch (e) { alert("Yükleme hatası"); }
+    setGeneratedText(""); // Yeni resim gelince eski metni sil
   };
 
   const handleGenerate = async () => {
-    if (!user || !uploadedPath) return;
+    if (!uploadedImage || !user) return;
     setProcessing(true);
-    setStatusMessage("Kredi kontrol ediliyor...");
-    setResultText(null);
 
     try {
-      // 1. KREDİ KONTROLÜ
       const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
-      if (!profile || profile.credits < 1) throw new Error("Yetersiz Kredi!");
       
-      await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
+      // Metin yazmak daha ucuz olsun (0.5 kredi gibi) veya şimdilik 1 kredi
+      if (profile && profile.credits < 1) {
+        alert("Yetersiz Kredi!");
+        setProcessing(false);
+        return;
+      }
 
-      // 2. İŞLEMİ BAŞLAT
-      setStatusMessage("Yapay zeka ürünü inceliyor...");
-      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(uploadedPath);
-
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: publicUrl,
-          type: 'copywriter', // TÜR: METİN YAZARI
-          userId: user.id
-        }),
-      });
-
-      const prediction = await response.json();
-      if (prediction.error) throw new Error(prediction.error);
-
-      // 3. TAKİP ET
-      setStatusMessage("Metin yazılıyor... (Yaklaşık 10sn)");
-      
-      const checkInterval = setInterval(async () => {
-        const checkRes = await fetch(`/api/check?id=${prediction.id}`);
-        const checkData = await checkRes.json();
-
-        if (checkData.status === "succeeded") {
-          clearInterval(checkInterval);
-          
-          // LLaVA modeli çıktıyı dizi (array) olarak döndürür, birleştiriyoruz.
-          const textOutput = Array.isArray(checkData.output) ? checkData.output.join("") : checkData.output;
-          
-          setResultText(textOutput);
-          setStatusMessage("✅ Açıklama Hazır!");
-          setProcessing(false);
-          
-          // Veritabanına kaydet (Not: result_image sütununa metin kaydediyoruz şimdilik, sorun olmaz)
-          await supabase.from("generations").insert({
-             user_id: user.id,
-             input_image: uploadedPath,
-             result_image: "metin-cikti", // Metin olduğu için temsili
-             status: 'completed',
-             model_id: 'copywriter'
-          });
-
-        } else if (checkData.status === "failed") {
-          clearInterval(checkInterval);
-          setStatusMessage("❌ İşlem başarısız.");
-          setProcessing(false);
+      // SİMÜLASYON: Gerçekte burası resmi GPT-4 Vision'a gönderip analiz ettirecek.
+      setTimeout(async () => {
+        if (profile) {
+            await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
         }
-      }, 2000);
 
-    } catch (error: any) {
-      alert("Hata: " + error.message);
+        let demoText = "";
+        
+        // Platforma Göre Senaryolar
+        if (platform === "instagram") {
+            demoText = `✨ Bu sezonun favori parçası stoklarda! ✨\n\nKombinlerinize şıklık katacak bu özel tasarım, hem günlük kullanımda hem de özel davetlerde kurtarıcınız olacak. Yumuşak dokusu ve modern kesimiyle üzerinizden çıkarmak istemeyeceksiniz. 😍\n\n✅ Sınırlı stok\n✅ Hızlı kargo\n✅ Şeffaf kargo imkanı\n\n👇 Sipariş için DM veya link profilde!\n\n#moda #trend #kombin #yenisezon #butik #tarz`;
+        } else if (platform === "trendyol") {
+            demoText = `Ürün Özellikleri:\n- Kumaş Tipi: %100 Pamuklu Dokuma\n- Kalıp: Regular Fit (Rahat Kesim)\n- Manken Bilgisi: Boy: 1.75, Kilo: 58, Beden: S\n\nGünlük kullanıma uygun, terletmeyen özel kumaşı ile gün boyu konfor sağlar. 30 derecede yıkanması önerilir. Türkiye'de üretilmiştir.\n\nSEO Anahtar Kelimeler: Kadın giyim, yazlık elbise, pamuklu tişört, günlük kombin.`;
+        } else {
+            demoText = `Global Trend Alert! 🌍\n\nDiscover the ultimate comfort meets style. Perfect for your capsule wardrobe. \n\n🌿 Sustainable materials\n✈️ Worldwide Shipping\n\nShop now at butikmodel.ai`;
+        }
+
+        setGeneratedText(demoText);
+        setProcessing(false);
+      }, 3000);
+
+    } catch (error) {
+      alert("Hata oluştu.");
       setProcessing(false);
-      setStatusMessage("");
     }
   };
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedText);
+    alert("Metin kopyalandı! 🎉");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-           <Link href="/dashboard" className="text-gray-500 font-bold hover:text-black">← Geri</Link>
-           <h1 className="font-bold text-lg text-gray-800">Metin Yazarı <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full ml-2">Beta</span></h1>
-        </div>
-        <div className={`text-sm font-bold px-4 py-1.5 rounded-full transition-all ${resultText ? "bg-green-100 text-green-700" : "bg-green-50 text-green-700"}`}>
-            {statusMessage || (resultText ? "Yazı Hazır" : "Hazır")}
-        </div>
+    <div className="p-8 min-h-screen font-sans pb-20">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Akıllı Metin Yazarı ✍️</h1>
+        <p className="text-gray-500 mt-2">Ürün fotoğrafını yükle, yapay zeka senin için satış odaklı açıklama yazsın.</p>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full p-6 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* SOL: YÜKLEME */}
-        <div className="w-full lg:w-1/3 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold mb-4 text-gray-800">1. Ürün Fotoğrafı</h3>
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl h-64 flex items-center justify-center cursor-pointer hover:border-green-500 hover:bg-green-50 transition overflow-hidden bg-gray-50 relative group">
-               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-               {uploadedImage ? (
-                 <img src={uploadedImage} className="w-full h-full object-contain" />
-               ) : (
-                 <div className="text-center">
-                    <span className="text-4xl block mb-2 opacity-30">✍️</span>
-                    <span className="text-gray-500 font-medium">Fotoğraf Seç</span>
-                 </div>
-               )}
+        {/* SOL: GİRDİLER */}
+        <div className="space-y-6">
+          
+          {/* Resim Yükleme */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-800 mb-4">Ürün Fotoğrafı</h3>
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative aspect-video border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${uploadedImage ? 'border-green-500' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'}`}
+            >
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+              {uploadedImage ? (
+                <img src={uploadedImage} className="w-full h-full object-contain bg-gray-50" />
+              ) : (
+                <div className="text-center">
+                  <span className="text-3xl">📷</span>
+                  <p className="text-sm text-gray-500 mt-2">Fotoğraf Seç</p>
+                </div>
+              )}
             </div>
           </div>
 
-          <button 
-            onClick={handleGenerate} 
-            disabled={!uploadedImage || processing}
-            className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all active:scale-95"
-          >
-            {processing ? "İnceleniyor..." : "📝 Açıklama Yaz (1 Kredi)"}
-          </button>
+          {/* Ayarlar */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-800 mb-4">Metin Ayarları</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2">Platform</label>
+                <div className="flex gap-2">
+                  {['instagram', 'trendyol', 'global'].map((p) => (
+                    <button 
+                      key={p}
+                      onClick={() => setPlatform(p)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-all ${platform === p ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2">Dil & Ton</label>
+                <select 
+                  className="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                >
+                  <option value="samimi">Samimi & Emoji Dolu (Instagram)</option>
+                  <option value="kurumsal">Resmi & Bilgi Odaklı (Pazaryeri)</option>
+                  <option value="hype">Heyecanlı & Aciliyet (Kampanya)</option>
+                </select>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={!uploadedImage || processing}
+              className="w-full mt-6 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+            >
+              {processing ? "Yazar Düşünüyor..." : "✨ Metni Yaz (1 Kredi)"}
+            </button>
+          </div>
         </div>
 
-        {/* SAĞ: SONUÇ (METİN KUTUSU) */}
-        <div className="w-full lg:w-2/3 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col p-6 min-h-[500px]">
-           <h3 className="font-bold text-gray-800 mb-4">Ürün Açıklaması</h3>
-           
-           {resultText ? (
-             <div className="flex-1 flex flex-col">
-                <textarea 
-                  className="w-full h-full flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-700 leading-relaxed"
-                  value={resultText}
-                  readOnly
-                ></textarea>
-                <div className="mt-4 flex justify-end">
-                  <button 
-                    onClick={() => navigator.clipboard.writeText(resultText)}
-                    className="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    📋 Kopyala
-                  </button>
-                </div>
-             </div>
-           ) : (
-             <div className="flex-1 flex items-center justify-center text-center text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
-               <div>
-                 <span className="text-6xl block mb-4 opacity-20">📄</span>
-                 <p>{statusMessage || "Fotoğrafı yükleyin, satış açıklamasını yapay zeka yazsın."}</p>
+        {/* SAĞ: SONUÇ */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+             <h3 className="font-bold text-gray-800">Oluşturulan Metin</h3>
+             {generatedText && (
+               <button onClick={copyToClipboard} className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold hover:bg-green-200 transition-colors">
+                 Kopyala
+               </button>
+             )}
+          </div>
+
+          <div className="flex-1 relative">
+             <textarea 
+               value={generatedText}
+               onChange={(e) => setGeneratedText(e.target.value)}
+               placeholder="Sonuç burada görünecek..."
+               className="w-full h-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-gray-700"
+             />
+             {processing && (
+               <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm rounded-xl">
+                 <div className="text-center">
+                    <div className="text-4xl animate-bounce mb-2">✍️</div>
+                    <p className="text-indigo-600 font-bold animate-pulse">Kalem oynatılıyor...</p>
+                 </div>
                </div>
-             </div>
-           )}
+             )}
+          </div>
+          
+          <p className="text-xs text-gray-400 mt-4 text-center">
+            *Metni düzenleyebilir, hashtag ekleyip çıkarabilirsiniz.
+          </p>
         </div>
 
       </div>
