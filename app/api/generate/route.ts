@@ -15,8 +15,8 @@ export async function POST(request: Request) {
     let output;
 
     // 1. TÜR: METİN YAZARI (Llama-3-70b)
-    // En zeki ve hızlı metin modeli
     if (type === 'copywriter') {
+      // Resmi model slug'ı kullanıyoruz (Version ID yerine)
       output = await replicate.run(
         "meta/meta-llama-3-70b-instruct",
         {
@@ -30,7 +30,6 @@ export async function POST(request: Request) {
     }
 
     // 2. TÜR: HAYALET MANKEN (Rembg)
-    // Arkaplan temizleme için en stabil model
     else if (type === 'ghost') {
       output = await replicate.run(
         "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
@@ -42,24 +41,19 @@ export async function POST(request: Request) {
       );
     } 
 
-    // 3. TÜR: SANAL STÜDYO (IDM-VTON) - KIYAFET GİYDİRME
-    // Dünyanın en iyi giydirme modeli (Virtual Try-On)
+    // 3. TÜR: SANAL STÜDYO (IDM-VTON)
+    // DÜZELTME BURADA: 'yisol' yerine 'cuuupid' kullanıyoruz.
     else {
       // Eğer kullanıcı manken seçmediyse varsayılan bir manken kullan
       const human = modelUrl || "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/model.jpg";
-      
-      // Kullanıcı kendi yüklediği resmi (kıyafeti) gönderiyor
-      // NOT: Senin "Blob" hatan olmasın diye buraya test için çalışan bir link koyuyorum. 
-      // Kendi resmini yükleyince hata alırsan sebebi Storage (Faz 2) eksikliğidir.
-      // Şimdilik motorun çalıştığını görmek için bu "garment" linkini sabit tuttum.
       const garment = "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/cloth.jpg"; 
 
       output = await replicate.run(
-        "yisol/idm-vton:c871bb9b0466074280c2a9a73b5d753e763bd3c87429273752e505a74653303d",
+        "cuuupid/idm-vton:c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
         {
           input: {
             human_img: human,
-            garm_img: imageUrl.startsWith("http") ? imageUrl : garment, // Eğer link geçerliyse kullan, değilse test resmini kullan
+            garm_img: imageUrl.startsWith("http") ? imageUrl : garment,
             garment_des: "clothing",
             steps: 30,
             seed: 42
@@ -74,8 +68,8 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("❌ MOTOR HATASI:", error);
     
-    // ÖDEME HATASI YAKALAMA (402)
-    if (error.message.includes("payment") || error.message.includes("402") || error.toString().includes("billable")) {
+    // ÖDEME HATASI (402) - Bunu görürsek işlem tamamdır!
+    if (error.toString().includes("402") || error.toString().includes("billable")) {
         return NextResponse.json({ error: "⚠️ Bakiye Yetersiz! Replicate hesabına kredi yüklemen gerekiyor." }, { status: 402 });
     }
 
