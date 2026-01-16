@@ -9,10 +9,12 @@ import { motion } from "framer-motion";
 export default function StudioPage() {
   const [user, setUser] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+  const [uploading, setUploading] = useState(false); // Yükleme durumu
   const [statusMessage, setStatusMessage] = useState("");
   
   // Resimler
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null); // Ekranda gösterilen (Preview)
+  const [publicUrl, setPublicUrl] = useState<string | null>(null); // Replicate'e gidecek olan (Gerçek Link)
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [userPrompt, setUserPrompt] = useState("");
   
@@ -47,34 +49,66 @@ export default function StudioPage() {
     initData();
   }, [router]);
 
+  // --- GÜNCELLENEN KISIM: STORAGE YÜKLEME ---
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
-    setUploadedImage(URL.createObjectURL(file));
-  };
 
-  // --- GÜNCELLENEN KISIM: GERÇEK API BAĞLANTISI ---
-  const handleGenerate = async () => {
-    if (!selectedModel) { alert("Lütfen bir manken seçin!"); return; }
-    if (!uploadedImage) { alert("Lütfen bir kıyafet yükleyin!"); return; }
+    // 1. Önce kullanıcı beklememesi için hemen ekranda göster (Preview)
+    setUploadedImage(URL.createObjectURL(file));
     
-    setProcessing(true);
-    setStatusMessage("Yapay Zeka Motoruna Bağlanılıyor..."); // Kullanıcıya bilgi ver
+    // 2. Yükleme işlemini başlat
+    setUploading(true);
+    setStatusMessage("Kıyafet buluta yükleniyor...");
 
     try {
-      // 1. Seçilen mankeni bul
+      // Dosya ismini benzersiz yap (çakışma olmasın)
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`; // Kullanıcı ID'sine göre klasörle
+
+      // Supabase'e Yükle
+      const { error: uploadError } = await supabase.storage
+        .from('uploads') // Senin açtığın bucket ismi
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Public Linki Al
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(filePath);
+
+      console.log("🌍 Dosya Public Linki:", publicUrl);
+      setPublicUrl(publicUrl); // Replicate'e bu gidecek
+      setStatusMessage("✅ Kıyafet yüklendi ve hazır!");
+
+    } catch (error: any) {
+      console.error("Yükleme Hatası:", error);
+      alert("Resim yüklenirken hata: " + error.message);
+      setStatusMessage("❌ Yükleme başarısız.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedModel) { alert("Lütfen bir manken seçin!"); return; }
+    if (!publicUrl) { alert("Lütfen kıyafet yükleyin (veya yüklemenin bitmesini bekleyin)!"); return; }
+    
+    setProcessing(true);
+    setStatusMessage("Yapay Zeka Motoruna Bağlanılıyor...");
+
+    try {
       const allModels = [...systemModels, ...userModels, ...customFaceModels];
       const targetModel = allModels.find(m => m.id === selectedModel);
       
-      // 2. API'ye İstek At (Motoru Çalıştır)
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "studio",
-          // NOT: Faz 2 (Storage) yapılmadığı için şimdilik test resmi gönderiyoruz.
-          // Gerçek sistemde buraya 'uploadedImage'in storage linki gelecek.
-          imageUrl: "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/cloth.jpg", 
+          imageUrl: publicUrl, // ARTIK GERÇEK RESMİ GÖNDERİYORUZ!
           modelUrl: targetModel?.image_url || "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/model.jpg",
           prompt: userPrompt
         })
@@ -86,19 +120,10 @@ export default function StudioPage() {
         throw new Error(data.error || "İşlem başarısız.");
       }
 
-      // 3. Sonucu Göster
       setResultImage(data.output);
       setStatusMessage("✅ Çekim Başarılı!");
-      
-      // 4. Kredi Düş (Opsiyonel: Bunu API tarafında yapmak daha güvenlidir)
-      /* const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
-      if (profile) {
-        await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
-      }
-      */
 
     } catch (error: any) {
-      // Hata Mesajını Ekrana Bas (Örn: Yetersiz Bakiye)
       alert("⚠️ MOTOR DURUMU: " + error.message);
       setStatusMessage("❌ İşlem Durduruldu.");
     } finally {
@@ -116,11 +141,17 @@ export default function StudioPage() {
           <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Sanal Stüdyo 📸</h1>
           <p className="text-gray-500 mt-2 text-lg">Profesyonel moda çekimi, saniyeler içinde.</p>
         </div>
+        {/* Durum Göstergesi */}
+        {statusMessage && (
+           <div className="text-sm font-bold bg-blue-50 text-blue-600 px-4 py-2 rounded-full animate-pulse">
+              ℹ️ {statusMessage}
+           </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* SOL KOLON: GİRDİLER (Bento Kart 1) */}
+        {/* SOL KOLON: GİRDİLER */}
         <div className="lg:col-span-4 space-y-6">
           
           {/* 1. KIYAFET YÜKLEME */}
@@ -131,9 +162,16 @@ export default function StudioPage() {
               Kıyafet
             </h3>
             
-            <div onClick={() => fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-2xl h-64 flex flex-col items-center justify-center cursor-pointer transition-all z-10 bg-gray-50/50 ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30'}`}>
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-              {uploadedImage ? (
+            {/* Yükleme Alanı - Loading Durumu Eklendi */}
+            <div onClick={() => !uploading && fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-2xl h-64 flex flex-col items-center justify-center cursor-pointer transition-all z-10 bg-gray-50/50 ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30'} ${uploading ? 'cursor-wait opacity-70' : ''}`}>
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={uploading} />
+              
+              {uploading ? (
+                 <div className="flex flex-col items-center">
+                    <span className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></span>
+                    <span className="text-xs font-bold text-blue-500">Buluta Yükleniyor...</span>
+                 </div>
+              ) : uploadedImage ? (
                 <img src={uploadedImage} className="h-full w-full object-contain rounded-xl p-2" />
               ) : (
                 <div className="text-center p-6">
@@ -158,10 +196,9 @@ export default function StudioPage() {
               className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-black outline-none min-h-[120px] resize-none transition-all focus:bg-white"
             />
           </div>
-
         </div>
 
-        {/* ORTA KOLON: MANKEN SEÇİMİ (Bento Kart 2) */}
+        {/* ORTA KOLON: MANKEN SEÇİMİ */}
         <div className="lg:col-span-5 flex flex-col">
           <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 h-full flex flex-col">
              <div className="flex justify-between items-center mb-6">
@@ -173,20 +210,12 @@ export default function StudioPage() {
                 {activeTab === 'face' && <Link href="/dashboard/train-model" className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-bold hover:bg-black">+ Yüz Ekle</Link>}
              </div>
 
-             {/* Modern Tabs */}
              <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-6">
                 {['system', 'generated', 'face'].map(tab => (
-                  <button 
-                    key={tab}
-                    onClick={() => setActiveTab(tab as any)}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
-                  >
-                    {tab === 'system' ? 'Hazır Havuz' : tab === 'generated' ? 'Laboratuvar' : 'Dijital İkiz'}
-                  </button>
+                  <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-md' : 'text-gray-500 hover:text-gray-900'}`}>{tab === 'system' ? 'Hazır Havuz' : tab === 'generated' ? 'Laboratuvar' : 'Dijital İkiz'}</button>
                 ))}
              </div>
 
-             {/* Manken Listesi */}
              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[400px]">
                 <div className="grid grid-cols-3 gap-3">
                   {/* Sistem Mankenleri */}
@@ -205,9 +234,6 @@ export default function StudioPage() {
                     <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
                       <img src={m.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                       <div className="absolute top-2 left-2 bg-purple-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">AI</div>
-                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
-                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
-                      </div>
                     </div>
                   ))}
 
@@ -216,14 +242,10 @@ export default function StudioPage() {
                     <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
                       <img src={m.cover_image} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                       <div className="absolute top-2 left-2 bg-blue-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">İKİZ</div>
-                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
-                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
-                      </div>
                     </div>
                   ))}
                 </div>
-                
-                {/* Boş Durumlar */}
+
                 {((activeTab === 'generated' && userModels.length === 0) || (activeTab === 'face' && customFaceModels.length === 0)) && (
                   <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-100 rounded-2xl">
                     <span className="text-4xl mb-3 opacity-20">📂</span>
@@ -235,10 +257,9 @@ export default function StudioPage() {
           </div>
         </div>
 
-        {/* SAĞ KOLON: AKSİYON (Bento Kart 3) */}
+        {/* SAĞ KOLON: AKSİYON */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-black text-white p-6 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col justify-between h-full min-h-[400px]">
-            {/* Arka plan efekti */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[80px] opacity-20 -mr-16 -mt-16 pointer-events-none"></div>
             
             <div>
@@ -246,7 +267,9 @@ export default function StudioPage() {
               <div className="space-y-4 text-sm text-gray-400">
                 <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
                   <span>Kıyafet</span>
-                  <span className={uploadedImage ? "text-green-400 font-bold" : "text-gray-600"}>{uploadedImage ? "Yüklendi" : "Bekleniyor"}</span>
+                  <span className={publicUrl ? "text-green-400 font-bold" : uploading ? "text-blue-400 animate-pulse" : "text-gray-600"}>
+                     {publicUrl ? "Hazır" : uploading ? "Yükleniyor..." : "Bekleniyor"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
                   <span>Manken</span>
@@ -261,7 +284,7 @@ export default function StudioPage() {
 
             <button 
               onClick={handleGenerate}
-              disabled={!uploadedImage || !selectedModel || processing}
+              disabled={!publicUrl || !selectedModel || processing} 
               className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-auto"
             >
               {processing ? (
@@ -273,12 +296,8 @@ export default function StudioPage() {
             </button>
           </div>
 
-          {/* Sonuç Alanı (Varsa) */}
           {resultImage && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-4 rounded-[2rem] shadow-xl border border-green-100"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-4 rounded-[2rem] shadow-xl border border-green-100">
               <img src={resultImage} className="w-full rounded-xl shadow-sm mb-4" />
               <button className="w-full bg-gray-100 text-gray-900 py-3 rounded-xl font-bold text-sm hover:bg-gray-200">
                 ⬇️ HD İndir
