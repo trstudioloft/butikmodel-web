@@ -4,23 +4,22 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion"; // EKLENDİ
 
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [modelCount, setModelCount] = useState(0); // Kaç mankeni var?
+  const [modelCount, setModelCount] = useState(0);
   
   const router = useRouter();
 
   useEffect(() => {
     async function getData() {
-      // 1. Kullanıcıyı Al
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
       setUser(session.user);
 
-      // 2. Profil ve Kredi bilgisini çek
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -29,7 +28,6 @@ export default function DashboardHome() {
       
       setProfile(profileData);
 
-      // 3. Kullanıcının kaç mankeni var?
       const { count } = await supabase
         .from("user_models")
         .select("*", { count: 'exact', head: true })
@@ -47,11 +45,32 @@ export default function DashboardHome() {
     </div>
   );
 
+  // Animasyon varyasyonları
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1 // Elemanlar sırayla gelsin
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="p-8 min-h-screen font-sans pb-20 max-w-7xl mx-auto">
+    <motion.div 
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="p-8 min-h-screen font-sans pb-20 max-w-7xl mx-auto"
+    >
       
-      {/* 1. ÜST BAŞLIK ALANI */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-10 pb-6 border-b border-gray-100">
+      {/* 1. ÜST BAŞLIK */}
+      <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-end mb-10 pb-6 border-b border-gray-100">
         <div>
            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">KOMUTA MERKEZİ</span>
            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mt-1">
@@ -68,13 +87,18 @@ export default function DashboardHome() {
               Kredi Yükle
            </Link>
         </div>
-      </div>
+      </motion.div>
 
-      {/* 2. DURUM KARTLARI (DASHBOARD STATS) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      {/* 2. DURUM KARTLARI */}
+      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         
         {/* KREDİ KARTI */}
-        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#000000] text-white rounded-2xl p-6 shadow-xl relative overflow-hidden group cursor-pointer transition-transform hover:-translate-y-1" onClick={() => router.push('/dashboard/profile')}>
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="bg-gradient-to-br from-[#1a1a1a] to-[#000000] text-white rounded-2xl p-6 shadow-xl relative overflow-hidden group cursor-pointer" 
+          onClick={() => router.push('/dashboard/profile')}
+        >
            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
               <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
            </div>
@@ -87,10 +111,14 @@ export default function DashboardHome() {
              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
              <span>Hesap Aktif</span>
            </div>
-        </div>
+        </motion.div>
 
         {/* MANKEN SAYISI */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-200 transition-all" onClick={() => router.push('/dashboard/my-models')}>
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-200 transition-colors" 
+          onClick={() => router.push('/dashboard/my-models')}
+        >
            <div className="absolute top-4 right-4 bg-blue-50 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
              👤
            </div>
@@ -100,10 +128,13 @@ export default function DashboardHome() {
            <div className="mt-4 text-blue-600 text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
              Yenisini Ekle →
            </div>
-        </div>
+        </motion.div>
 
-        {/* HIZLI AKSİYON: SONUÇLAR */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-purple-200 transition-all">
+        {/* SONUÇLAR */}
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-purple-200 transition-colors"
+        >
            <div className="absolute top-4 right-4 bg-purple-50 text-purple-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
              🚀
            </div>
@@ -113,67 +144,53 @@ export default function DashboardHome() {
            <div className="mt-4 text-purple-600 text-xs font-bold">
              Henüz işlem yapılmadı
            </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      {/* 3. HIZLI ERİŞİM ARAÇLARI (TOOLS GRID) */}
-      <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+      {/* 3. ARAÇLAR GRID */}
+      <motion.h2 variants={item} className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
         <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
         Üretim Araçları
-      </h2>
+      </motion.h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
          
-         {/* ARAÇ 1: SANAL STÜDYO */}
-         <Link href="/dashboard/studio" className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              📸
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Sanal Stüdyo</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">Kıyafetleri mankenlere giydir.</p>
-         </Link>
+         {/* ARAÇ KARTLARI */}
+         {[
+           { title: "Sanal Stüdyo", desc: "Kıyafetleri mankenlere giydir.", icon: "📸", color: "blue", link: "/dashboard/studio" },
+           { title: "Hayalet Manken", desc: "Mankeni sil, sadece kıyafeti bırak.", icon: "👻", color: "purple", link: "/dashboard/ghost" },
+           { title: "Atmosfer", desc: "Dükkan çekimini Paris'e taşı.", icon: "🎨", color: "green", link: "/dashboard/background" },
+           { title: "Metin Yazarı", desc: "Instagram için açıklama yazdır.", icon: "✍️", color: "yellow", link: "/dashboard/copywriter" }
+         ].map((tool, i) => (
+            <Link key={i} href={tool.link}>
+              <motion.div 
+                whileHover={{ scale: 1.03, rotate: 1 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all h-full group"
+              >
+                <div className={`w-14 h-14 bg-${tool.color}-50 text-${tool.color}-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-${tool.color}-600 group-hover:text-white transition-colors`}>
+                  {tool.icon}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">{tool.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{tool.desc}</p>
+              </motion.div>
+            </Link>
+         ))}
 
-         {/* ARAÇ 2: HAYALET MANKEN */}
-         <Link href="/dashboard/ghost" className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              👻
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Hayalet Manken</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">Mankeni sil, sadece kıyafeti bırak.</p>
-         </Link>
+      </motion.div>
 
-         {/* ARAÇ 3: ATMOSFER */}
-         <Link href="/dashboard/background" className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-14 h-14 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
-              🎨
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Atmosfer</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">Dükkan çekimini Paris'e taşı.</p>
-         </Link>
-
-         {/* ARAÇ 4: METİN YAZARI */}
-         <Link href="/dashboard/copywriter" className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-14 h-14 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-yellow-600 group-hover:text-white transition-colors">
-              ✍️
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Metin Yazarı</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">Instagram için açıklama yazdır.</p>
-         </Link>
-
-      </div>
-
-      {/* 4. ALT BİLGİ / SİSTEM DURUMU */}
-      <div className="mt-12 bg-gray-50 rounded-xl p-4 flex items-center justify-between text-xs text-gray-500 border border-gray-100">
+      {/* 4. ALT BİLGİ */}
+      <motion.div variants={item} className="mt-12 bg-gray-50 rounded-xl p-4 flex items-center justify-between text-xs text-gray-500 border border-gray-100">
          <div className="flex items-center gap-4">
             <span className="flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Yapay Zeka: <strong>Aktif</strong></span>
             <span className="hidden sm:inline">|</span>
             <span className="hidden sm:inline">Veritabanı: <strong>Bağlı</strong></span>
          </div>
          <div>
-            butikmodel.ai <span className="font-bold">v2.0</span>
+            butikmodel.com <span className="font-bold">v2.0</span>
          </div>
-      </div>
+      </motion.div>
 
-    </div>
+    </motion.div>
   );
 }
