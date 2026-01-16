@@ -10,18 +10,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { imageUrl, modelUrl, type, prompt } = body;
 
-    console.log(`🚀 AI Motoru Çalışıyor... İşlem: ${type}`);
+    console.log(`🚀 AI Motoru: ${type} işlemi başlatıldı.`);
 
     let output;
 
-    // 1. TÜR: METİN YAZARI (Llama-3-70b)
+    // 1. METİN YAZARI
     if (type === 'copywriter') {
-      // Resmi model slug'ı kullanıyoruz (Version ID yerine)
       output = await replicate.run(
         "meta/meta-llama-3-70b-instruct",
         {
           input: {
-            prompt: `Sen profesyonel bir moda editörüsün. Şu ürün görseli için Türkçe, satış odaklı, Instagram ve Trendyol uyumlu bir açıklama yaz. Ürün resmi linki: ${imageUrl}. Ton: ${prompt || 'Samimi ve heyecanlı'}. Özellikleri vurgula, emoji kullan.`,
+            prompt: prompt || "Write a sales caption.",
             max_tokens: 500
           }
         }
@@ -29,22 +28,34 @@ export async function POST(request: Request) {
       if (Array.isArray(output)) output = output.join(""); 
     }
 
-    // 2. TÜR: HAYALET MANKEN (Rembg)
+    // 2. HAYALET MANKEN
     else if (type === 'ghost') {
       output = await replicate.run(
         "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-        {
-          input: {
-            image: imageUrl
-          }
-        }
+        { input: { image: imageUrl } }
       );
     } 
 
-    // 3. TÜR: SANAL STÜDYO (IDM-VTON)
-    // DÜZELTME BURADA: 'yisol' yerine 'cuuupid' kullanıyoruz.
+    // 3. ATMOSFER SİHİRBAZI (YENİ EKLENDİ!) 🎨
+    // Ürün arkaplanını değiştiren model (Ads Background)
+    else if (type === 'background') {
+      output = await replicate.run(
+        "fofr/ads-background:9f7d639b251954388e404b32231922c2a014902166946002f23f03a60a928956", 
+        {
+          input: {
+            image: imageUrl,
+            prompt: prompt, // Kullanıcının girdiği "Paris sokakları" vb.
+            negative_prompt: "low quality, distorted, watermark, text, blurry, ugly",
+            num_outputs: 1
+          }
+        }
+      );
+      // Bu model dizi döndürebilir, ilkini al
+      if (Array.isArray(output)) output = output[0];
+    }
+
+    // 4. SANAL STÜDYO (Manken Giydirme)
     else {
-      // Eğer kullanıcı manken seçmediyse varsayılan bir manken kullan
       const human = modelUrl || "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/model.jpg";
       const garment = "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/cloth.jpg"; 
 
@@ -62,15 +73,14 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("✅ İşlem Başarılı! Sonuç:", output);
+    console.log("✅ İşlem Başarılı:", output);
     return NextResponse.json({ success: true, output });
 
   } catch (error: any) {
     console.error("❌ MOTOR HATASI:", error);
     
-    // ÖDEME HATASI (402) - Bunu görürsek işlem tamamdır!
     if (error.toString().includes("402") || error.toString().includes("billable")) {
-        return NextResponse.json({ error: "⚠️ Bakiye Yetersiz! Replicate hesabına kredi yüklemen gerekiyor." }, { status: 402 });
+        return NextResponse.json({ error: "⚠️ Bakiye Yetersiz! Lütfen Replicate hesabına kredi yükleyin." }, { status: 402 });
     }
 
     return NextResponse.json({ error: error.message }, { status: 500 });

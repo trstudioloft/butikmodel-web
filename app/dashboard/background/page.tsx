@@ -8,11 +8,16 @@ import { motion } from "framer-motion";
 export default function BackgroundPage() {
   const [user, setUser] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
-  const [results, setResults] = useState<string[]>([]);
-  const [shootMode, setShootMode] = useState<'model' | 'product'>('model');
+  // Resim Yönetimi
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null); // Ekranda görünen
+  const [publicUrl, setPublicUrl] = useState<string | null>(null); // API'ye giden
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  
+  // Ayarlar
+  const [shootMode, setShootMode] = useState<'model' | 'product'>('product'); // Varsayılan Ürün olsun
   const [selectedTheme, setSelectedTheme] = useState("stüdyo");
   const [customPrompt, setCustomPrompt] = useState(""); 
   
@@ -28,25 +33,74 @@ export default function BackgroundPage() {
     getUser();
   }, [router]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files) return;
-    const newFiles = Array.from(event.target.files).map(file => URL.createObjectURL(file));
-    setUploadedFiles([...uploadedFiles, ...newFiles]);
-    setResults([]);
+  // --- 1. RESİM YÜKLEME ---
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0]) return;
+    const file = event.target.files[0];
+    
+    // Önizleme
+    setUploadedImage(URL.createObjectURL(file));
+    setResultImage(null);
+    setUploading(true);
+    setStatusMessage("Görsel buluta yükleniyor...");
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `bg-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('uploads').upload(filePath, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(filePath);
+
+      setPublicUrl(publicUrl);
+      setStatusMessage("✅ Görsel Hazır!");
+
+    } catch (error: any) {
+      alert("Hata: " + error.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
+  // --- 2. TEMA SEÇİMİ ---
+  const handleThemeSelect = (id: string, name: string) => {
+    setSelectedTheme(id);
+    // Temayı prompt'a otomatik ekle
+    setCustomPrompt(`${name} ortamında, profesyonel ürün fotoğrafçılığı, 8k çözünürlük, sinematik ışık.`);
+  };
+
+  // --- 3. MOTORU ÇALIŞTIR ---
   const handleProcess = async () => {
+    if (!publicUrl) { alert("Lütfen görselin yüklenmesini bekleyin."); return; }
+    
     setProcessing(true);
     setStatusMessage("Atmosfer yaratılıyor...");
-    setTimeout(() => {
-        const demoResults = uploadedFiles.map(() => 
-          shootMode === 'model' 
-             ? "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop" 
-             : "https://images.unsplash.com/photo-1549388604-817d15aa0110?w=600&h=800&fit=crop"
-        );
-        setResults(demoResults);
-        setProcessing(false);
-    }, 4000);
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "background", // API'ye yeni bir görev türü gönderiyoruz
+          imageUrl: publicUrl,
+          prompt: customPrompt || "Professional studio lighting, minimal background"
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "İşlem başarısız.");
+
+      setResultImage(data.output);
+      setStatusMessage("✨ Sahne Hazır!");
+
+    } catch (error: any) {
+      alert("Motor Hatası: " + error.message);
+      setStatusMessage("❌ Hata oluştu");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -54,9 +108,16 @@ export default function BackgroundPage() {
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
     >
-      <div className="mb-10">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Atmosfer Sihirbazı 🎨</h1>
-        <p className="text-gray-500 mt-2 text-lg">Ürünü istediğin mekana ışınla. Stüdyo, sokak veya uzay.</p>
+      <div className="mb-10 flex justify-between items-end">
+        <div>
+           <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Atmosfer Sihirbazı 🎨</h1>
+           <p className="text-gray-500 mt-2 text-lg">Ürünü istediğin mekana ışınla. Stüdyo, sokak veya uzay.</p>
+        </div>
+        {statusMessage && (
+           <div className="text-sm font-bold bg-blue-50 text-blue-600 px-4 py-2 rounded-full animate-pulse">
+              ℹ️ {statusMessage}
+           </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -83,6 +144,24 @@ export default function BackgroundPage() {
           <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100">
             <h3 className="font-bold text-gray-900 mb-6">Mekan Tarifi</h3>
             
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {[
+                {id: 'stüdyo', name: 'Stüdyo', icon: '📸', desc: 'Minimalist Stüdyo'},
+                {id: 'street', name: 'Sokak', icon: '🏙️', desc: 'Paris Sokakları'},
+                {id: 'cafe', name: 'Cafe', icon: '☕', desc: 'Lüks Kafe Masası'},
+                {id: 'nature', name: 'Doğa', icon: '🌿', desc: 'Doğal Güneş Işığı'},
+              ].map(theme => (
+                <button 
+                  key={theme.id}
+                  onClick={() => handleThemeSelect(theme.id, theme.desc)}
+                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${selectedTheme === theme.id ? 'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600' : 'border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <span>{theme.icon}</span>
+                  <span className="text-sm font-bold">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+
             <textarea 
                value={customPrompt}
                onChange={(e) => setCustomPrompt(e.target.value)}
@@ -90,77 +169,83 @@ export default function BackgroundPage() {
                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm min-h-[140px] focus:ring-2 focus:ring-black outline-none mb-6 resize-none"
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {id: 'stüdyo', name: 'Stüdyo', icon: '📸'},
-                {id: 'street', name: 'Sokak', icon: '🏙️'},
-                {id: 'cafe', name: 'Cafe', icon: '☕'},
-                {id: 'nature', name: 'Doğa', icon: '🌿'},
-              ].map(theme => (
-                <button 
-                  key={theme.id}
-                  onClick={() => setSelectedTheme(theme.id)}
-                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${selectedTheme === theme.id ? 'border-black bg-gray-50 ring-1 ring-black' : 'border-gray-100 hover:bg-gray-50'}`}
-                >
-                  <span>{theme.icon}</span>
-                  <span className="text-sm font-bold text-gray-700">{theme.name}</span>
-                </button>
-              ))}
-            </div>
-
             <button 
               onClick={handleProcess}
-              disabled={uploadedFiles.length === 0 || processing}
-              className="w-full mt-8 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!uploadedImage || processing || !publicUrl}
+              className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {processing ? "Oluşturuluyor..." : "✨ Atmosferi Değiştir"}
+              {processing ? (
+                 <>
+                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                   Oluşturuluyor...
+                 </>
+              ) : "✨ Atmosferi Değiştir (5 Kredi)"}
             </button>
           </div>
         </div>
 
-        {/* SAĞ: GALERİ (2 Kolon) */}
+        {/* SAĞ: GALERİ / SONUÇ */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 min-h-[600px]">
+          <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 min-h-[600px] flex flex-col">
              <div className="flex justify-between items-center mb-6">
                <h3 className="font-bold text-gray-800 text-lg">
-                 {shootMode === 'model' ? "Manken Fotoğrafları" : "Ürün Fotoğrafları"}
+                 Atölye Masası
                </h3>
-               <button onClick={() => {setUploadedFiles([]); setResults([]);}} className="text-xs text-red-500 font-bold hover:underline">Temizle</button>
+               {uploadedImage && (
+                  <button onClick={() => {setUploadedImage(null); setResultImage(null); setPublicUrl(null);}} className="text-xs text-red-500 font-bold hover:underline">Temizle</button>
+               )}
              </div>
              
-             {/* Yükleme Grid */}
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-               <div onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors">
-                 <input type="file" multiple ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-                 <span className="text-3xl text-gray-300 mb-2">+</span>
-                 <span className="text-xs font-bold text-gray-400">Yükle</span>
-               </div>
-               {uploadedFiles.map((src, i) => (
-                 <div key={i} className="aspect-[3/4] rounded-2xl overflow-hidden relative border border-gray-100 group">
-                   <img src={src} className="w-full h-full object-cover" />
-                   <div className="absolute inset-0 bg-black/10"></div>
-                 </div>
-               ))}
-             </div>
-
-             {/* Sonuçlar */}
-             {results.length > 0 && (
-               <div className="mt-12 pt-8 border-t border-gray-100 animate-in slide-in-from-bottom-4">
-                 <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-                   ✅ Sonuçlar
-                 </h3>
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                   {results.map((src, i) => (
-                     <div key={i} className="group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md transition-transform hover:scale-105">
-                       <img src={src} className="w-full h-full object-cover" />
-                       <a href={src} download className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                         <span className="bg-white text-black text-xs font-bold px-4 py-2 rounded-full">⬇️ İndir</span>
-                       </a>
+             <div className="flex-1 flex flex-col gap-8">
+                {/* 1. YÜKLEME ALANI */}
+                {!uploadedImage ? (
+                  <div 
+                     onClick={() => !uploading && fileInputRef.current?.click()}
+                     className={`flex-1 border-2 border-dashed border-gray-200 rounded-[2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-all ${uploading ? 'opacity-50' : ''}`}
+                  >
+                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={uploading} />
+                     <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-4xl mb-4">
+                        {uploading ? '⏳' : '🎨'}
                      </div>
-                   ))}
-                 </div>
-               </div>
-             )}
+                     <p className="font-bold text-gray-400">{uploading ? 'Yükleniyor...' : 'Fotoğrafı Buraya Bırak'}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                     {/* Orijinal */}
+                     <div className="relative rounded-2xl overflow-hidden border border-gray-100 group h-[400px]">
+                        <img src={uploadedImage} className="w-full h-full object-contain bg-gray-50" />
+                        <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full backdrop-blur-md">Orijinal</div>
+                     </div>
+
+                     {/* Sonuç */}
+                     <div className="relative rounded-2xl overflow-hidden border border-green-100 group h-[400px] bg-gray-50 flex items-center justify-center">
+                        {resultImage ? (
+                           <>
+                              <img src={resultImage} className="w-full h-full object-contain" />
+                              <div className="absolute top-4 right-4 bg-green-500 text-white text-xs px-3 py-1 rounded-full shadow-lg">Yeni Atmosfer</div>
+                              <a href={resultImage} target="_blank" className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-full text-xs font-bold shadow-xl hover:scale-105 transition-transform">
+                                 ⬇️ İndir
+                              </a>
+                           </>
+                        ) : (
+                           <div className="text-center opacity-40">
+                              {processing ? (
+                                 <div className="animate-pulse">
+                                    <span className="text-4xl">✨</span>
+                                    <p className="mt-2 font-bold">Yapay Zeka Çalışıyor...</p>
+                                 </div>
+                              ) : (
+                                 <>
+                                    <span className="text-4xl">Waiting...</span>
+                                    <p className="mt-2 text-sm">İşlem bekleniyor</p>
+                                 </>
+                              )}
+                           </div>
+                        )}
+                     </div>
+                  </div>
+                )}
+             </div>
           </div>
         </div>
 
