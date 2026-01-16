@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function StudioPage() {
   const [user, setUser] = useState<any>(null);
@@ -21,7 +22,7 @@ export default function StudioPage() {
   
   const [systemModels, setSystemModels] = useState<any[]>([]); // Hazır Havuz
   const [userModels, setUserModels] = useState<any[]>([]);     // Lab (Yapay)
-  const [customFaceModels, setCustomFaceModels] = useState<any[]>([]); // Dijital İkizler (YENİ)
+  const [customFaceModels, setCustomFaceModels] = useState<any[]>([]); // Dijital İkizler
   
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   
@@ -34,15 +35,13 @@ export default function StudioPage() {
       if (!session) { router.push("/login"); return; }
       setUser(session.user);
 
-      // 1. HAZIR HAVUZU ÇEK
+      // Verileri Çek
       const { data: sysData } = await supabase.from("system_models").select("*").order("name");
       if (sysData) setSystemModels(sysData);
 
-      // 2. LABORATUVAR MANKENLERİNİ ÇEK
       const { data: usrData } = await supabase.from("user_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
       if (usrData) setUserModels(usrData);
 
-      // 3. DİJİTAL İKİZLERİ ÇEK (YENİ)
       const { data: faceData } = await supabase.from("custom_face_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
       if (faceData) setCustomFaceModels(faceData);
     }
@@ -59,10 +58,9 @@ export default function StudioPage() {
   const handleGenerate = async () => {
     if (!selectedModel) { alert("Lütfen bir manken seçin!"); return; }
     setProcessing(true);
-    setStatusMessage("Senaryo oluşturuluyor...");
+    setStatusMessage("Set hazırlanıyor...");
 
     try {
-      // Seçilen mankeni bul
       const allModels = [...systemModels, ...userModels, ...customFaceModels];
       const targetModel = allModels.find(m => m.id === selectedModel);
       
@@ -89,200 +87,182 @@ export default function StudioPage() {
   };
 
   return (
-    <div className="p-8 min-h-screen pb-20 font-sans max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Sanal Stüdyo 📸</h1>
-        <p className="text-gray-500 mt-2">Kıyafetini yükle, mankenini seç ve çekimi başlat.</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10 flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Sanal Stüdyo 📸</h1>
+          <p className="text-gray-500 mt-2 text-lg">Profesyonel moda çekimi, saniyeler içinde.</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* SOL KOLON: GİRDİLER */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* SOL KOLON: GİRDİLER (Bento Kart 1) */}
+        <div className="lg:col-span-4 space-y-6">
           
-          {/* ADIM 1: KIYAFET */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">1</span>
-              Kıyafet Fotoğrafı
+          {/* 1. KIYAFET YÜKLEME */}
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[2rem] -mr-4 -mt-4 z-0"></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 relative z-10">
+              <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">1</span>
+              Kıyafet
             </h3>
-            <div onClick={() => fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${uploadedImage ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-black'}`}>
+            
+            <div onClick={() => fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-2xl h-64 flex flex-col items-center justify-center cursor-pointer transition-all z-10 bg-gray-50/50 ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30'}`}>
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
               {uploadedImage ? (
-                <img src={uploadedImage} className="h-48 w-full object-contain mx-auto" />
+                <img src={uploadedImage} className="h-full w-full object-contain rounded-xl p-2" />
               ) : (
-                <div className="py-8">
-                  <span className="text-4xl">👕</span>
-                  <p className="mt-2 text-sm text-gray-500">Fotoğraf seçmek için tıkla</p>
+                <div className="text-center p-6">
+                  <span className="text-4xl block mb-2 opacity-30">👕</span>
+                  <p className="text-sm font-bold text-gray-400">Fotoğrafı Sürükle</p>
+                  <p className="text-xs text-gray-300 mt-1">veya tıklayarak seç</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* ADIM 2: OYUNCU SEÇİMİ */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">2</span>
-                  Manken Seçimi
-                </h3>
-                
-                {/* HIZLI EKLE BUTONLARI */}
-                {activeTab === 'generated' && (
-                  <Link href="/dashboard/my-models" className="text-xs bg-black text-white px-3 py-1.5 rounded-full font-bold hover:bg-gray-800">
-                    + Yeni Üret
-                  </Link>
-                )}
-                {activeTab === 'face' && (
-                  <Link href="/dashboard/train-model" className="text-xs bg-black text-white px-3 py-1.5 rounded-full font-bold hover:bg-gray-800">
-                    + Yeni Yüz Tanıt
-                  </Link>
-                )}
-             </div>
-
-             {/* SEKMELER */}
-             <div className="flex p-1 bg-gray-100 rounded-xl mb-6">
-                <button 
-                  onClick={() => setActiveTab('system')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'system' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                  🏢 Hazır Havuz
-                </button>
-                <button 
-                  onClick={() => setActiveTab('generated')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'generated' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                  🧬 Laboratuvar
-                </button>
-                <button 
-                  onClick={() => setActiveTab('face')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'face' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                  👤 Kendi Yüzüm
-                </button>
-             </div>
-
-             {/* MANKEN LİSTESİ */}
-             <div className="min-h-[200px]">
-                
-                {/* 1. HAZIR HAVUZ */}
-                {activeTab === 'system' && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                    {systemModels.map((m) => (
-                      <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
-                        <img src={m.image_url} className="w-full h-full object-cover" />
-                        <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent text-white text-[10px] p-2 pt-4 text-center truncate font-medium">
-                          {m.name}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 2. LABORATUVAR */}
-                {activeTab === 'generated' && (
-                  userModels.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                      {userModels.map((m) => (
-                        <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
-                          <img src={m.image_url} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">AI</div>
-                          <div className="absolute bottom-0 w-full bg-black/60 text-white text-[10px] p-1 text-center truncate">{m.name}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
-                      <p className="text-gray-500 mb-4">Henüz kendi ürettiğin bir manken yok.</p>
-                      <Link href="/dashboard/my-models" className="bg-black text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800">
-                        Hemen Üretmeye Başla
-                      </Link>
-                    </div>
-                  )
-                )}
-
-                {/* 3. KENDİ YÜZÜM (YENİ) */}
-                {activeTab === 'face' && (
-                  customFaceModels.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                      {customFaceModels.map((m) => (
-                        <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-2 ring-blue-100 scale-105' : 'border-transparent hover:border-gray-200'}`}>
-                          <img src={m.cover_image} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 right-2 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">İKİZ</div>
-                          <div className="absolute bottom-0 w-full bg-black/60 text-white text-[10px] p-1 text-center truncate">{m.name}</div>
-                        </div>
-                      ))}
-                       {/* Ekleme Kartı */}
-                       <Link href="/dashboard/train-model" className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors">
-                          <span className="text-2xl text-gray-400">+</span>
-                          <span className="text-xs font-bold text-gray-500 mt-2">Yeni Yüz</span>
-                       </Link>
-                    </div>
-                  ) : (
-                    <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                      <div className="text-4xl mb-3">🤳</div>
-                      <h4 className="font-bold text-gray-900">Dijital İkizini Yarat</h4>
-                      <p className="text-gray-500 text-sm mb-4 max-w-xs mx-auto">
-                        Kendi fotoğrafını yükle, sistem seni tanısın ve tüm kıyafetleri sana giydirsin.
-                      </p>
-                      <Link href="/dashboard/train-model" className="bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-lg">
-                        Fotoğraf Yüklemeye Başla
-                      </Link>
-                    </div>
-                  )
-                )}
-             </div>
-          </div>
-
-          {/* ADIM 3: SAHNE */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="bg-black text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">3</span>
-              Sahne & Atmosfer
+          {/* 3. SAHNE AYARLARI */}
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 relative z-10">
+              <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">3</span>
+              Mekan & Işık
             </h3>
             <textarea 
               value={userPrompt}
               onChange={(e) => setUserPrompt(e.target.value)}
-              placeholder="Örn: Paris'te yağmurlu bir sokakta..."
-              className="w-full p-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none min-h-[100px]"
+              placeholder="Örn: Paris sokaklarında, yumuşak gün ışığı, arkada flu mağaza vitrinleri..."
+              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-black outline-none min-h-[120px] resize-none transition-all focus:bg-white"
             />
           </div>
 
         </div>
 
-        {/* SAĞ KOLON: ÇEKİM */}
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-4">
-            <h3 className="font-bold text-gray-900 mb-4">Prodüksiyon</h3>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Kıyafet:</span>
-                <span>{uploadedImage ? "✅ Hazır" : "❌ Bekleniyor"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Manken:</span>
-                <span className={selectedModel ? "text-green-600 font-bold" : "text-red-500"}>
-                  {selectedModel ? "✅ Seçildi" : "❌ Seçilmedi"}
-                </span>
-              </div>
-              <button 
-                onClick={handleGenerate}
-                disabled={!uploadedImage || !selectedModel || processing}
-                className="w-full bg-black text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {processing ? "Motor Çalışıyor..." : "🎬 Kayıt! (1 Kredi)"}
-              </button>
-            </div>
+        {/* ORTA KOLON: MANKEN SEÇİMİ (Bento Kart 2) */}
+        <div className="lg:col-span-5 flex flex-col">
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 h-full flex flex-col">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">2</span>
+                  Cast Ajansı
+                </h3>
+                {activeTab === 'generated' && <Link href="/dashboard/my-models" className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-bold hover:bg-black">+ Yeni Üret</Link>}
+                {activeTab === 'face' && <Link href="/dashboard/train-model" className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-bold hover:bg-black">+ Yüz Ekle</Link>}
+             </div>
+
+             {/* Modern Tabs */}
+             <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-6">
+                {['system', 'generated', 'face'].map(tab => (
+                  <button 
+                    key={tab}
+                    onClick={() => setActiveTab(tab as any)}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    {tab === 'system' ? 'Hazır Havuz' : tab === 'generated' ? 'Laboratuvar' : 'Dijital İkiz'}
+                  </button>
+                ))}
+             </div>
+
+             {/* Manken Listesi */}
+             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[400px]">
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Sistem Mankenleri */}
+                  {activeTab === 'system' && systemModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                      {selectedModel === m.id && <div className="absolute top-2 right-2 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">✓</div>}
+                    </div>
+                  ))}
+
+                  {/* Lab Mankenleri */}
+                  {activeTab === 'generated' && userModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute top-2 left-2 bg-purple-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">AI</div>
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Dijital İkizler */}
+                  {activeTab === 'face' && customFaceModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.cover_image} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute top-2 left-2 bg-blue-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">İKİZ</div>
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Boş Durumlar */}
+                {((activeTab === 'generated' && userModels.length === 0) || (activeTab === 'face' && customFaceModels.length === 0)) && (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-100 rounded-2xl">
+                    <span className="text-4xl mb-3 opacity-20">📂</span>
+                    <p className="text-gray-400 text-sm mb-4">Bu kategoride mankenin yok.</p>
+                    <Link href={activeTab === 'generated' ? "/dashboard/my-models" : "/dashboard/train-model"} className="text-xs font-bold text-blue-600 hover:underline">Oluşturmaya Git →</Link>
+                  </div>
+                )}
+             </div>
           </div>
-          {resultImage && (
-            <div className="bg-white p-4 rounded-2xl shadow-lg border border-green-100 animate-in fade-in zoom-in">
-              <img src={resultImage} className="w-full rounded-lg shadow-sm" />
-              <button className="w-full mt-3 bg-gray-100 text-gray-800 py-2 rounded-lg font-bold text-xs hover:bg-gray-200">Görseli İndir</button>
+        </div>
+
+        {/* SAĞ KOLON: AKSİYON (Bento Kart 3) */}
+        <div className="lg:col-span-3 space-y-6">
+          <div className="bg-black text-white p-6 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col justify-between h-full min-h-[400px]">
+            {/* Arka plan efekti */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[80px] opacity-20 -mr-16 -mt-16 pointer-events-none"></div>
+            
+            <div>
+              <h3 className="text-xl font-bold mb-6">Prodüksiyon Özeti</h3>
+              <div className="space-y-4 text-sm text-gray-400">
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Kıyafet</span>
+                  <span className={uploadedImage ? "text-green-400 font-bold" : "text-gray-600"}>{uploadedImage ? "Yüklendi" : "Bekleniyor"}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Manken</span>
+                  <span className={selectedModel ? "text-green-400 font-bold" : "text-gray-600"}>{selectedModel ? "Seçildi" : "Bekleniyor"}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Maliyet</span>
+                  <span className="text-white font-bold">1 Kredi</span>
+                </div>
+              </div>
             </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={!uploadedImage || !selectedModel || processing}
+              className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-auto"
+            >
+              {processing ? "Motor Çalışıyor..." : "🎬 Çekimi Başlat"}
+            </button>
+          </div>
+
+          {/* Sonuç Alanı (Varsa) */}
+          {resultImage && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-4 rounded-[2rem] shadow-xl border border-green-100"
+            >
+              <img src={resultImage} className="w-full rounded-xl shadow-sm mb-4" />
+              <button className="w-full bg-gray-100 text-gray-900 py-3 rounded-xl font-bold text-sm hover:bg-gray-200">
+                ⬇️ HD İndir
+              </button>
+            </motion.div>
           )}
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 }
