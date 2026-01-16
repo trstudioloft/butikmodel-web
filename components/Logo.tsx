@@ -14,7 +14,6 @@ export default function Logo({ className = "w-8 h-8", dark = false }: { classNam
         <circle cx="50" cy="67.5" r="10" stroke="currentColor" strokeWidth="6"/>
         <path d="M50 20V30" stroke="currentColor" strokeWidth="6"/>
       </svg>
-      {/* YAZI: Sadece büyük boyda görünürse şık olur */}
     </div>
   );
 }
