@@ -20,7 +20,7 @@ export default function Home() {
       <nav className="fixed top-0 w-full bg-white/70 backdrop-blur-xl z-50 border-b border-gray-100/50 transition-all">
         <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            {/* YENİ LOGO ENTEGRASYONU */}
+            {/* LOGO */}
             <div className="w-9 h-9">
                <Logo />
             </div>
@@ -40,7 +40,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* HERO SECTION (AURORA) */}
+      {/* HERO SECTION (AURORA & ANIMATION) */}
       <section className="relative pt-44 pb-32 px-4 overflow-hidden">
         {/* Canlı Arka Plan Işıkları */}
         <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-blue-200/40 via-purple-200/30 to-transparent rounded-[100%] blur-[80px] -z-10 animate-pulse-slow"></div>
@@ -85,7 +85,7 @@ export default function Home() {
             </a>
           </motion.div>
 
-          {/* INFINITE LOGO SCROLL */}
+          {/* INFINITE LOGO SCROLL (Kayan Markalar) */}
           <div className="mt-24 border-y border-gray-100 py-8 overflow-hidden relative bg-white/50 backdrop-blur-sm">
              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white to-transparent z-10"></div>
              <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent z-10"></div>
@@ -94,7 +94,7 @@ export default function Home() {
                 {["TRENDYOL", "HEPSİBURADA", "AMAZON", "SHOPIFY", "WOOCOMMERCE", "ZARA", "MANGO", "H&M", "MAVİ", "KOTON", "LCW", "DEFACTO"].map((brand, i) => (
                    <span key={i} className="text-xl font-black text-gray-900 tracking-widest">{brand}</span>
                 ))}
-                {/* Döngü Pürüzsüzlüğü İçin Tekrar */}
+                {/* Sonsuz döngü için tekrar */}
                 {["TRENDYOL", "HEPSİBURADA", "AMAZON", "SHOPIFY", "WOOCOMMERCE", "ZARA", "MANGO", "H&M", "MAVİ", "KOTON", "LCW", "DEFACTO"].map((brand, i) => (
                    <span key={`dup-${i}`} className="text-xl font-black text-gray-900 tracking-widest">{brand}</span>
                 ))}
@@ -284,52 +284,66 @@ export default function Home() {
          </div>
       </section>
 
-      {/* PRICING SECTION */}
+      {/* PRICING SECTION (YENİ FİYATLAR) */}
       <section id="pricing" className="py-32 bg-[#fafafa]">
         <div className="max-w-7xl mx-auto px-4">
            <div className="text-center mb-20">
-             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Basit ve Şeffaf Fiyatlandırma</h2>
-             <p className="text-gray-500 text-lg">Gizli ücret yok. Fotoğrafçı masrafının 10'da 1'i.</p>
+             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Esnek Fiyatlandırma</h2>
+             <p className="text-gray-500 text-lg">Fotoğrafçı masrafının 10'da 1'i. Kullandığın kadar öde.</p>
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {/* Plan 1 */}
+              
+              {/* PAKET 1: BAŞLANGIÇ */}
               <div className="p-8 rounded-[2rem] bg-white border border-gray-100 hover:border-gray-200 transition hover:shadow-xl flex flex-col">
-                 <h3 className="text-xl font-bold text-gray-500 mb-2">Başlangıç</h3>
-                 <div className="text-5xl font-extrabold text-gray-900 mb-6">₺499<span className="text-sm font-normal text-gray-400">/ay</span></div>
+                 <h3 className="text-xl font-bold text-gray-500 mb-2">Deneme Paketi</h3>
+                 <div className="text-5xl font-extrabold text-gray-900 mb-2">₺1.000</div>
+                 <div className="text-sm font-bold text-green-600 mb-6 bg-green-50 inline-block px-3 py-1 rounded-full w-fit">1.000 Kredi</div>
+                 
                  <ul className="space-y-4 text-sm text-gray-600 mb-8 flex-1">
-                   <li className="flex gap-3">✓ 50 Fotoğraf İşleme</li>
-                   <li className="flex gap-3">✓ Standart Mankenler</li>
-                   <li className="flex gap-3">✓ Normal Hız</li>
+                   <li className="flex gap-3">👕 <strong>20 Adet</strong> Manken Giydirme</li>
+                   <li className="flex gap-3 items-center"><span className="text-xs text-gray-400">VEYA</span></li>
+                   <li className="flex gap-3">👻 <strong>50 Adet</strong> Hayalet Manken</li>
+                   <li className="flex gap-3 items-center"><span className="text-xs text-gray-400">VEYA</span></li>
+                   <li className="flex gap-3">✍️ <strong>200 Adet</strong> Metin Yazımı</li>
                  </ul>
                  <button className="w-full py-4 rounded-xl bg-gray-50 font-bold text-gray-900 hover:bg-gray-100 transition">Paketi Seç</button>
               </div>
 
-              {/* Plan 2 (POPÜLER) */}
+              {/* PAKET 2: PRO (POPÜLER) */}
               <div className="p-8 rounded-[2rem] bg-black text-white border border-gray-800 transform md:-translate-y-6 shadow-2xl relative flex flex-col">
                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">EN ÇOK TERCİH EDİLEN</div>
                  <h3 className="text-xl font-bold text-gray-400 mb-2">Butik Pro</h3>
-                 <div className="text-5xl font-extrabold mb-6">₺999<span className="text-sm font-normal text-gray-500">/ay</span></div>
+                 <div className="text-5xl font-extrabold mb-2">₺5.000</div>
+                 <div className="text-sm font-bold text-black mb-6 bg-white inline-block px-3 py-1 rounded-full w-fit">6.000 Kredi (+1000 Hediye)</div>
+
                  <ul className="space-y-4 text-sm text-gray-300 mb-8 flex-1">
-                   <li className="flex gap-3">✓ 200 Fotoğraf İşleme</li>
-                   <li className="flex gap-3">✓ Tüm Premium Mankenler</li>
-                   <li className="flex gap-3">✓ Hayalet Manken Modu</li>
-                   <li className="flex gap-3">✓ Yüksek Hız & Öncelik</li>
+                   <li className="flex gap-3">👕 <strong>120 Adet</strong> Manken Giydirme</li>
+                   <li className="flex gap-3">⚡️ Öncelikli Hızlı Üretim</li>
+                   <li className="flex gap-3">🔒 Veriler 30 Gün Saklanır</li>
+                   <li className="flex gap-3">📞 WhatsApp Öncelikli Destek</li>
                  </ul>
                  <button className="w-full py-4 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition shadow-lg">Hemen Başla</button>
               </div>
 
-              {/* Plan 3 */}
+              {/* PAKET 3: AJANS */}
               <div className="p-8 rounded-[2rem] bg-white border border-gray-100 hover:border-gray-200 transition hover:shadow-xl flex flex-col">
                  <h3 className="text-xl font-bold text-gray-500 mb-2">Ajans / Toptan</h3>
-                 <div className="text-5xl font-extrabold text-gray-900 mb-6">₺2.499<span className="text-sm font-normal text-gray-400">/ay</span></div>
+                 <div className="text-5xl font-extrabold text-gray-900 mb-2">₺20.000</div>
+                 <div className="text-sm font-bold text-blue-600 mb-6 bg-blue-50 inline-block px-3 py-1 rounded-full w-fit">25.000 Kredi (+5000 Hediye)</div>
+
                  <ul className="space-y-4 text-sm text-gray-600 mb-8 flex-1">
-                   <li className="flex gap-3">✓ 1000 Fotoğraf İşleme</li>
-                   <li className="flex gap-3">✓ API Erişimi</li>
-                   <li className="flex gap-3">✓ Özel Manken Tasarımı</li>
+                   <li className="flex gap-3">👕 <strong>500+ Adet</strong> Manken Giydirme</li>
+                   <li className="flex gap-3">🔌 API Erişimi</li>
+                   <li className="flex gap-3">👤 Özel Manken Tasarımı</li>
+                   <li className="flex gap-3">🧾 Kurumsal Fatura</li>
                  </ul>
                  <button className="w-full py-4 rounded-xl bg-gray-50 font-bold text-gray-900 hover:bg-gray-100 transition">İletişime Geç</button>
               </div>
+           </div>
+           
+           <div className="text-center mt-12 text-sm text-gray-400">
+             * Birim Maliyetler: Manken Giydirme 50 Kredi | Hayalet Manken 20 Kredi | Metin Yazarı 5 Kredi
            </div>
         </div>
       </section>
