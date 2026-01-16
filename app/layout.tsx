@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import NextTopLoader from 'nextjs-toploader';
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 // Outfit fontunu yapılandır
 const outfit = Outfit({ 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://butikmodel.com'), // Gerçek domain buraya
+  metadataBase: new URL('https://butikmodel.com'), // Gerçek domain
   openGraph: {
     title: 'ButikModel.com | Yapay Zeka Manken Stüdyosu',
     description: 'Kıyafetlerinizi yapay zeka ile profesyonel mankenlere giydirin. Satışlarınızı artırın.',
@@ -60,6 +61,7 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={`${outfit.className} antialiased`}>
+        {/* Üstte Yükleme Çubuğu */}
         <NextTopLoader 
           color="#2563eb"
           initialPosition={0.08}
@@ -71,7 +73,11 @@ export default function RootLayout({
           speed={200}
           shadow="0 0 10px #2563eb,0 0 5px #2563eb"
         />
+        
         {children}
+
+        {/* GOOGLE ANALYTICS (Senin Kodun) */}
+        <GoogleAnalytics gaId="G-Z5XSJN80QQ" />
       </body>
     </html>
   );

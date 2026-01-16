@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import Logo from "@/components/Logo"; // LOGO EKLENDİ
+import Logo from "@/components/Logo"; // Logo bileşeni
 
 // Supabase bağlantısı
 const supabase = createClient(
@@ -12,6 +12,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Prop ekledik: onClose (Mobilde menüyü kapatmak için)
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -112,7 +113,8 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
           <div className="w-8 h-8">
              <Logo dark={true} />
           </div>
-          <span className="font-bold text-lg text-white tracking-tight">butikmodel.ai</span>
+          {/* DÜZELTME: .ai -> .com */}
+          <span className="font-bold text-lg text-white tracking-tight">butikmodel.com</span>
         </div>
 
         {/* MENÜ GRUPLARI */}
