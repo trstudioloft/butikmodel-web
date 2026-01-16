@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google"; // Inter yerine Outfit
 import "./globals.css";
-import NextTopLoader from 'nextjs-toploader'; // EKLENDİ
+import NextTopLoader from 'nextjs-toploader';
 
-const inter = Inter({ subsets: ["latin"] });
+// Outfit fontunu yapılandır
+const outfit = Outfit({ 
+  subsets: ["latin"],
+  weight: ['300', '400', '500', '600', '700', '800'] 
+});
 
 export const metadata: Metadata = {
   title: "ButikModel.com | Yapay Zeka Stüdyosu",
@@ -17,10 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={inter.className}>
-        {/* Yükleme Çubuğu Ayarları (Renk: Siyah, Hız: Yumuşak) */}
+      <body className={`${outfit.className} antialiased`}>
         <NextTopLoader 
-          color="#000000"
+          color="#2563eb" // Siyah yerine "Royal Blue" daha teknolojik durur
           initialPosition={0.08}
           crawlSpeed={200}
           height={3}
@@ -28,7 +31,7 @@ export default function RootLayout({
           showSpinner={false}
           easing="ease"
           speed={200}
-          shadow="0 0 10px #2299DD,0 0 5px #2299DD"
+          shadow="0 0 10px #2563eb,0 0 5px #2563eb"
         />
         {children}
       </body>
