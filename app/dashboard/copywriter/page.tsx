@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function CopywriterPage() {
   const [user, setUser] = useState<any>(null);
@@ -10,7 +11,7 @@ export default function CopywriterPage() {
   
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [platform, setPlatform] = useState("instagram");
-  const [tone, setTone] = useState("samimi"); // Samimi, Kurumsal, Hype
+  const [tone, setTone] = useState("samimi");
   const [generatedText, setGeneratedText] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,7 +30,7 @@ export default function CopywriterPage() {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
     setUploadedImage(URL.createObjectURL(file));
-    setGeneratedText(""); // Yeni resim gelince eski metni sil
+    setGeneratedText("");
   };
 
   const handleGenerate = async () => {
@@ -37,24 +38,10 @@ export default function CopywriterPage() {
     setProcessing(true);
 
     try {
-      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
-      
-      // Metin yazmak daha ucuz olsun (0.5 kredi gibi) veya şimdilik 1 kredi
-      if (profile && profile.credits < 1) {
-        alert("Yetersiz Kredi!");
-        setProcessing(false);
-        return;
-      }
-
-      // SİMÜLASYON: Gerçekte burası resmi GPT-4 Vision'a gönderip analiz ettirecek.
+      // SİMÜLASYON
       setTimeout(async () => {
-        if (profile) {
-            await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
-        }
-
         let demoText = "";
         
-        // Platforma Göre Senaryolar
         if (platform === "instagram") {
             demoText = `✨ Bu sezonun favori parçası stoklarda! ✨\n\nKombinlerinize şıklık katacak bu özel tasarım, hem günlük kullanımda hem de özel davetlerde kurtarıcınız olacak. Yumuşak dokusu ve modern kesimiyle üzerinizden çıkarmak istemeyeceksiniz. 😍\n\n✅ Sınırlı stok\n✅ Hızlı kargo\n✅ Şeffaf kargo imkanı\n\n👇 Sipariş için DM veya link profilde!\n\n#moda #trend #kombin #yenisezon #butik #tarz`;
         } else if (platform === "trendyol") {
@@ -65,10 +52,9 @@ export default function CopywriterPage() {
 
         setGeneratedText(demoText);
         setProcessing(false);
-      }, 3000);
+      }, 2500);
 
     } catch (error) {
-      alert("Hata oluştu.");
       setProcessing(false);
     }
   };
@@ -79,49 +65,51 @@ export default function CopywriterPage() {
   };
 
   return (
-    <div className="p-8 min-h-screen font-sans pb-20">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Akıllı Metin Yazarı ✍️</h1>
-        <p className="text-gray-500 mt-2">Ürün fotoğrafını yükle, yapay zeka senin için satış odaklı açıklama yazsın.</p>
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10">
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Akıllı Metin Yazarı ✍️</h1>
+        <p className="text-gray-500 mt-2 text-lg">Görseli yükle, yapay zeka satış odaklı açıklamanı yazsın.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* SOL: GİRDİLER */}
+        {/* SOL: GİRDİLER (BENTO) */}
         <div className="space-y-6">
           
-          {/* Resim Yükleme */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-800 mb-4">Ürün Fotoğrafı</h3>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden group">
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">1. Ürün Görseli</h3>
+            
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className={`relative aspect-video border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${uploadedImage ? 'border-green-500' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'}`}
+              className={`relative h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/20'}`}
             >
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
               {uploadedImage ? (
-                <img src={uploadedImage} className="w-full h-full object-contain bg-gray-50" />
+                <img src={uploadedImage} className="w-full h-full object-contain p-2" />
               ) : (
-                <div className="text-center">
-                  <span className="text-3xl">📷</span>
-                  <p className="text-sm text-gray-500 mt-2">Fotoğraf Seç</p>
+                <div className="text-center p-6">
+                  <span className="text-5xl block mb-3 opacity-30">📷</span>
+                  <p className="text-sm font-bold text-gray-400">Analiz Edilecek Fotoğrafı Seç</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Ayarlar */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-800 mb-4">Metin Ayarları</h3>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">2. Hedef Kitle & Ton</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">Platform</label>
-                <div className="flex gap-2">
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Platform</label>
+                <div className="flex gap-3">
                   {['instagram', 'trendyol', 'global'].map((p) => (
                     <button 
                       key={p}
                       onClick={() => setPlatform(p)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-all ${platform === p ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize transition-all ${platform === p ? 'bg-black text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
                     >
                       {p}
                     </button>
@@ -130,15 +118,15 @@ export default function CopywriterPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">Dil & Ton</label>
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Yazı Dili</label>
                 <select 
-                  className="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm"
+                  className="w-full p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm font-medium focus:ring-2 focus:ring-yellow-400 outline-none appearance-none"
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
                 >
-                  <option value="samimi">Samimi & Emoji Dolu (Instagram)</option>
-                  <option value="kurumsal">Resmi & Bilgi Odaklı (Pazaryeri)</option>
-                  <option value="hype">Heyecanlı & Aciliyet (Kampanya)</option>
+                  <option value="samimi">Samimi & Emoji Dolu 🚀</option>
+                  <option value="kurumsal">Resmi & Teknik Detaylı 👔</option>
+                  <option value="hype">Heyecanlı & Kampanya Odaklı 🔥</option>
                 </select>
               </div>
             </div>
@@ -146,47 +134,55 @@ export default function CopywriterPage() {
             <button 
               onClick={handleGenerate}
               disabled={!uploadedImage || processing}
-              className="w-full mt-6 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+              className="w-full mt-8 bg-yellow-500 text-black py-4 rounded-xl font-bold shadow-lg hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 hover:scale-[1.02]"
             >
-              {processing ? "Yazar Düşünüyor..." : "✨ Metni Yaz (1 Kredi)"}
+              {processing ? "Yazar Düşünüyor..." : "✨ Metni Oluştur (1 Kredi)"}
             </button>
           </div>
         </div>
 
-        {/* SAĞ: SONUÇ */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-             <h3 className="font-bold text-gray-800">Oluşturulan Metin</h3>
-             {generatedText && (
-               <button onClick={copyToClipboard} className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold hover:bg-green-200 transition-colors">
-                 Kopyala
-               </button>
-             )}
-          </div>
-
-          <div className="flex-1 relative">
-             <textarea 
-               value={generatedText}
-               onChange={(e) => setGeneratedText(e.target.value)}
-               placeholder="Sonuç burada görünecek..."
-               className="w-full h-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-gray-700"
-             />
-             {processing && (
-               <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm rounded-xl">
-                 <div className="text-center">
-                    <div className="text-4xl animate-bounce mb-2">✍️</div>
-                    <p className="text-indigo-600 font-bold animate-pulse">Kalem oynatılıyor...</p>
+        {/* SAĞ: SONUÇ (NOT DEFTERİ GÖRÜNÜMÜ) */}
+        <div className="bg-[#fff9c4]/10 rounded-[2.5rem] border border-yellow-100 p-2 h-full min-h-[600px] flex flex-col relative">
+           <div className="absolute inset-0 bg-yellow-50/50 rounded-[2.5rem] -z-10"></div>
+           
+           <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 h-full flex flex-col relative overflow-hidden">
+              <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                 <div className="flex items-center gap-3">
+                    <span className="w-3 h-3 rounded-full bg-red-400"></span>
+                    <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                    <span className="w-3 h-3 rounded-full bg-green-400"></span>
                  </div>
-               </div>
-             )}
-          </div>
-          
-          <p className="text-xs text-gray-400 mt-4 text-center">
-            *Metni düzenleyebilir, hashtag ekleyip çıkarabilirsiniz.
-          </p>
+                 {generatedText && (
+                   <button onClick={copyToClipboard} className="text-xs bg-black text-white px-4 py-2 rounded-full font-bold hover:bg-gray-800 transition-colors flex items-center gap-2">
+                     📋 Kopyala
+                   </button>
+                 )}
+              </div>
+
+              <div className="flex-1 relative">
+                 <textarea 
+                   value={generatedText}
+                   onChange={(e) => setGeneratedText(e.target.value)}
+                   placeholder="Yapay zeka sonucu buraya yazacak..."
+                   className="w-full h-full p-2 bg-transparent border-none text-gray-700 text-lg leading-loose resize-none focus:ring-0 outline-none font-medium font-mono"
+                 />
+                 
+                 {processing && (
+                   <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm z-10">
+                      <div className="text-5xl animate-bounce mb-4">✍️</div>
+                      <p className="text-gray-500 font-bold animate-pulse">Kelimeler seçiliyor...</p>
+                   </div>
+                 )}
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-xs text-gray-400 font-mono">
+                 <span>{generatedText.length} Karakter</span>
+                 <span>AI Copywriter v2.0</span>
+              </div>
+           </div>
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 }
