@@ -1,0 +1,3173 @@
+=== BUTIKMODEL.COM DETAYLI PROJE DÖKÜMÜ ===
+Tarih: 1/16/2026, 12:33:29 AM
+Toplam Dosya Sayısı: 32
+
+
+================================================================================
+DOSYA YOLU: app/api/check/route.ts
+================================================================================
+import { NextResponse } from "next/server";
+import Replicate from "replicate";
+
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "ID gerekli" }, { status: 400 });
+  }
+
+  try {
+    // Replicate'e sor: Bu iş ne durumda?
+    const prediction = await replicate.predictions.get(id);
+
+    return NextResponse.json(prediction);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+================================================================================
+DOSYA YOLU: app/api/generate/route.ts
+================================================================================
+import { NextResponse } from "next/server";
+import Replicate from "replicate";
+
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { imageUrl, modelUrl, type, prompt } = body;
+
+    console.log(`🚀 Sipariş Geldi! Tür: ${type || 'Standart'}, Prompt: ${prompt || 'Yok'}`);
+
+    let output;
+
+    // 1. TÜR: METİN YAZARI
+    if (type === 'copywriter') {
+      output = await replicate.predictions.create({
+        version: "a0fdc44e4f2e1f20f2bb4e27846899953ac8e66c5886c5878fa1d6b27369fc46",
+        input: {
+          image: imageUrl,
+          top_p: 1,
+          prompt: "Describe this fashion product for an e-commerce listing. Write in Turkish.",
+          max_tokens: 1024
+        },
+      });
+    }
+
+    // 2. TÜR: HAYALET MANKEN
+    else if (type === 'ghost') {
+      output = await replicate.predictions.create({
+        version: "fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+        input: { image: imageUrl, return_mask: false },
+      });
+    } 
+
+    // 3. TÜR: STÜDYO / ARKAPLAN (YENİ!)
+    else if (type === 'studio') {
+      // 'logerze/ad-inpaint' modeli ürün fotoğrafını alır, arkaplanı siler ve prompt'a göre yenisini yapar.
+      output = await replicate.predictions.create({
+        version: "b1c17d148455c1fda435ababe9ab1e03bc0d917cc3cf4251916f2d7641eccdc5",
+        input: {
+          image_path: imageUrl, // Ürün resmi
+          prompt: prompt || "professional product photography, studio lighting, high quality", // Mekan tarifi
+          negative_prompt: "low quality, text, watermark, ugly, distorted",
+          pixel_perfect: true,
+          shading_strength: 0.5
+        },
+      });
+    }
+    
+    // 4. TÜR: STANDART MANKEN GİYDİRME
+    else {
+      output = await replicate.predictions.create({
+        version: "c871bb9b0466074280c2a9a73b5d753e763bd3c87429273752e505a74653303d",
+        input: {
+          human_img: modelUrl || "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/model.jpg",
+          garm_img: imageUrl,
+          garment_des: "clothing",
+          steps: 30,
+        },
+      });
+    }
+
+    return NextResponse.json(output, { status: 201 });
+
+  } catch (error: any) {
+    console.error("❌ API Hatası:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+================================================================================
+DOSYA YOLU: app/contact/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+
+export default function ContactPage() {
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSent(true);
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-black selection:text-white overflow-hidden relative">
+      
+      {/* ARKA PLAN EFEKTLERİ */}
+      <div className="absolute top-[-10%] right-[-10%] w-[800px] h-[800px] bg-blue-100/50 rounded-full blur-[100px] -z-10 animate-pulse-slow"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-100/50 rounded-full blur-[100px] -z-10 animate-pulse-slow"></div>
+
+      {/* NAVBAR */}
+      <nav className="fixed top-0 w-full bg-white/70 backdrop-blur-xl z-50 border-b border-gray-100/50">
+        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-9 h-9 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">B</div>
+            <span className="font-bold text-xl tracking-tight">butikmodel<span className="text-gray-400">.com</span></span>
+          </Link>
+          <Link href="/" className="text-sm font-bold text-gray-500 hover:text-black transition">
+            ← Ana Sayfa
+          </Link>
+        </div>
+      </nav>
+
+      <div className="pt-40 pb-20 px-4 max-w-7xl mx-auto">
+        
+        {/* BAŞLIK */}
+        <div className="text-center mb-16">
+           <motion.h1 
+             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+             className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight text-gray-900"
+           >
+             İletişime Geçin 💬
+           </motion.h1>
+           <motion.p 
+             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.6 }}
+             className="text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed"
+           >
+             Projenizle ilgili sorularınız mı var? Ekibimiz size yardımcı olmak için hazır.
+           </motion.p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-start">
+           
+           {/* SOL: BİLGİ KARTLARI */}
+           <motion.div 
+             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}
+             className="space-y-8"
+           >
+              <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100">
+                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                   <span className="w-2 h-6 bg-blue-600 rounded-full"></span> Genel Merkez
+                 </h3>
+                 <p className="text-gray-600 leading-relaxed text-lg">
+                   Pars Digital Plaza<br/>
+                   Maslak Mah. Büyükdere Cad. No: 123<br/>
+                   Sarıyer, İstanbul
+                 </p>
+              </div>
+
+              <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100">
+                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                   <span className="w-2 h-6 bg-purple-600 rounded-full"></span> Doğrudan Ulaşın
+                 </h3>
+                 <div className="space-y-4">
+                    <a href="mailto:destek@butikmodel.com" className="flex items-center gap-4 text-gray-600 hover:text-black transition p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 group">
+                       <span className="text-2xl">✉️</span>
+                       <span className="font-bold text-lg">destek@butikmodel.com</span>
+                    </a>
+                    <a href="tel:+902120000000" className="flex items-center gap-4 text-gray-600 hover:text-black transition p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 group">
+                       <span className="text-2xl">📞</span>
+                       <span className="font-bold text-lg">+90 (212) 000 00 00</span>
+                    </a>
+                 </div>
+              </div>
+           </motion.div>
+
+           {/* SAĞ: FORM (GLASS) */}
+           <motion.div 
+             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+             className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-blue-900/5 border border-white p-8 lg:p-12 relative"
+           >
+              {sent ? (
+                <div className="h-[400px] flex flex-col items-center justify-center text-center py-20 animate-in fade-in zoom-in">
+                   <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-5xl mb-6 shadow-inner">✓</div>
+                   <h3 className="text-3xl font-bold text-gray-900 mb-2">Mesajınız Alındı!</h3>
+                   <p className="text-gray-500 mb-8 text-lg">En kısa sürede size dönüş yapacağız.</p>
+                   <button onClick={() => setSent(false)} className="text-sm font-bold text-black underline hover:text-blue-600">
+                     Yeni Mesaj Gönder
+                   </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Adınız</label>
+                         <input required type="text" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-black outline-none transition-all font-medium" />
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Soyadınız</label>
+                         <input required type="text" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-black outline-none transition-all font-medium" />
+                      </div>
+                   </div>
+
+                   <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">E-Posta</label>
+                      <input required type="email" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-black outline-none transition-all font-medium" />
+                   </div>
+
+                   <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Konu</label>
+                      <div className="relative">
+                        <select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-black outline-none transition-all font-medium appearance-none">
+                           <option>Genel Bilgi</option>
+                           <option>Teknik Destek</option>
+                           <option>Kurumsal / Ajans</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">▼</div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Mesajınız</label>
+                      <textarea required rows={4} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-black outline-none transition-all resize-none font-medium"></textarea>
+                   </div>
+
+                   <button 
+                     type="submit" 
+                     disabled={loading}
+                     className="w-full bg-black text-white font-bold py-5 rounded-2xl shadow-xl hover:bg-gray-900 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg"
+                   >
+                     {loading ? "Gönderiliyor..." : "Mesajı Gönder →"}
+                   </button>
+                </form>
+              )}
+           </motion.div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/background/page.tsx
+================================================================================
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+
+export default function BackgroundPage() {
+  const [user, setUser] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [results, setResults] = useState<string[]>([]);
+  const [shootMode, setShootMode] = useState<'model' | 'product'>('model');
+  const [selectedTheme, setSelectedTheme] = useState("stüdyo");
+  const [customPrompt, setCustomPrompt] = useState(""); 
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function getUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+    }
+    getUser();
+  }, [router]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
+    const newFiles = Array.from(event.target.files).map(file => URL.createObjectURL(file));
+    setUploadedFiles([...uploadedFiles, ...newFiles]);
+    setResults([]);
+  };
+
+  const handleProcess = async () => {
+    setProcessing(true);
+    setStatusMessage("Atmosfer yaratılıyor...");
+    setTimeout(() => {
+        const demoResults = uploadedFiles.map(() => 
+          shootMode === 'model' 
+             ? "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop" 
+             : "https://images.unsplash.com/photo-1549388604-817d15aa0110?w=600&h=800&fit=crop"
+        );
+        setResults(demoResults);
+        setProcessing(false);
+    }, 4000);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10">
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Atmosfer Sihirbazı 🎨</h1>
+        <p className="text-gray-500 mt-2 text-lg">Ürünü istediğin mekana ışınla. Stüdyo, sokak veya uzay.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* SOL: AYARLAR */}
+        <div className="space-y-6">
+          
+          {/* MOD SEÇİMİ */}
+          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex">
+             <button 
+               onClick={() => setShootMode('model')}
+               className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${shootMode === 'model' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
+             >
+               👤 Manken
+             </button>
+             <button 
+               onClick={() => setShootMode('product')}
+               className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${shootMode === 'product' ? 'bg-black text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
+             >
+               👜 Ürün / Obje
+             </button>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-6">Mekan Tarifi</h3>
+            
+            <textarea 
+               value={customPrompt}
+               onChange={(e) => setCustomPrompt(e.target.value)}
+               placeholder={shootMode === 'model' ? "Örn: Lüks bir otel lobisinde..." : "Örn: Mermer masa üzerinde, gün ışığı..."}
+               className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm min-h-[140px] focus:ring-2 focus:ring-black outline-none mb-6 resize-none"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {id: 'stüdyo', name: 'Stüdyo', icon: '📸'},
+                {id: 'street', name: 'Sokak', icon: '🏙️'},
+                {id: 'cafe', name: 'Cafe', icon: '☕'},
+                {id: 'nature', name: 'Doğa', icon: '🌿'},
+              ].map(theme => (
+                <button 
+                  key={theme.id}
+                  onClick={() => setSelectedTheme(theme.id)}
+                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${selectedTheme === theme.id ? 'border-black bg-gray-50 ring-1 ring-black' : 'border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <span>{theme.icon}</span>
+                  <span className="text-sm font-bold text-gray-700">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={handleProcess}
+              disabled={uploadedFiles.length === 0 || processing}
+              className="w-full mt-8 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? "Oluşturuluyor..." : "✨ Atmosferi Değiştir"}
+            </button>
+          </div>
+        </div>
+
+        {/* SAĞ: GALERİ (2 Kolon) */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 min-h-[600px]">
+             <div className="flex justify-between items-center mb-6">
+               <h3 className="font-bold text-gray-800 text-lg">
+                 {shootMode === 'model' ? "Manken Fotoğrafları" : "Ürün Fotoğrafları"}
+               </h3>
+               <button onClick={() => {setUploadedFiles([]); setResults([]);}} className="text-xs text-red-500 font-bold hover:underline">Temizle</button>
+             </div>
+             
+             {/* Yükleme Grid */}
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+               <div onClick={() => fileInputRef.current?.click()} className="aspect-[3/4] border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-black transition-colors">
+                 <input type="file" multiple ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                 <span className="text-3xl text-gray-300 mb-2">+</span>
+                 <span className="text-xs font-bold text-gray-400">Yükle</span>
+               </div>
+               {uploadedFiles.map((src, i) => (
+                 <div key={i} className="aspect-[3/4] rounded-2xl overflow-hidden relative border border-gray-100 group">
+                   <img src={src} className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/10"></div>
+                 </div>
+               ))}
+             </div>
+
+             {/* Sonuçlar */}
+             {results.length > 0 && (
+               <div className="mt-12 pt-8 border-t border-gray-100 animate-in slide-in-from-bottom-4">
+                 <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                   ✅ Sonuçlar
+                 </h3>
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                   {results.map((src, i) => (
+                     <div key={i} className="group relative aspect-[3/4] rounded-2xl overflow-hidden shadow-md transition-transform hover:scale-105">
+                       <img src={src} className="w-full h-full object-cover" />
+                       <a href={src} download className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                         <span className="bg-white text-black text-xs font-bold px-4 py-2 rounded-full">⬇️ İndir</span>
+                       </a>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
+          </div>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/copywriter/page.tsx
+================================================================================
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+
+export default function CopywriterPage() {
+  const [user, setUser] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
+  
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [platform, setPlatform] = useState("instagram");
+  const [tone, setTone] = useState("samimi");
+  const [generatedText, setGeneratedText] = useState("");
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function getUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+    }
+    getUser();
+  }, [router]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0]) return;
+    const file = event.target.files[0];
+    setUploadedImage(URL.createObjectURL(file));
+    setGeneratedText("");
+  };
+
+  const handleGenerate = async () => {
+    if (!uploadedImage || !user) return;
+    setProcessing(true);
+
+    try {
+      // SİMÜLASYON
+      setTimeout(async () => {
+        let demoText = "";
+        
+        if (platform === "instagram") {
+            demoText = `✨ Bu sezonun favori parçası stoklarda! ✨\n\nKombinlerinize şıklık katacak bu özel tasarım, hem günlük kullanımda hem de özel davetlerde kurtarıcınız olacak. Yumuşak dokusu ve modern kesimiyle üzerinizden çıkarmak istemeyeceksiniz. 😍\n\n✅ Sınırlı stok\n✅ Hızlı kargo\n✅ Şeffaf kargo imkanı\n\n👇 Sipariş için DM veya link profilde!\n\n#moda #trend #kombin #yenisezon #butik #tarz`;
+        } else if (platform === "trendyol") {
+            demoText = `Ürün Özellikleri:\n- Kumaş Tipi: %100 Pamuklu Dokuma\n- Kalıp: Regular Fit (Rahat Kesim)\n- Manken Bilgisi: Boy: 1.75, Kilo: 58, Beden: S\n\nGünlük kullanıma uygun, terletmeyen özel kumaşı ile gün boyu konfor sağlar. 30 derecede yıkanması önerilir. Türkiye'de üretilmiştir.\n\nSEO Anahtar Kelimeler: Kadın giyim, yazlık elbise, pamuklu tişört, günlük kombin.`;
+        } else {
+            demoText = `Global Trend Alert! 🌍\n\nDiscover the ultimate comfort meets style. Perfect for your capsule wardrobe. \n\n🌿 Sustainable materials\n✈️ Worldwide Shipping\n\nShop now at butikmodel.ai`;
+        }
+
+        setGeneratedText(demoText);
+        setProcessing(false);
+      }, 2500);
+
+    } catch (error) {
+      setProcessing(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedText);
+    alert("Metin kopyalandı! 🎉");
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10">
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Akıllı Metin Yazarı ✍️</h1>
+        <p className="text-gray-500 mt-2 text-lg">Görseli yükle, yapay zeka satış odaklı açıklamanı yazsın.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* SOL: GİRDİLER (BENTO) */}
+        <div className="space-y-6">
+          
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden group">
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">1. Ürün Görseli</h3>
+            
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/20'}`}
+            >
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+              {uploadedImage ? (
+                <img src={uploadedImage} className="w-full h-full object-contain p-2" />
+              ) : (
+                <div className="text-center p-6">
+                  <span className="text-5xl block mb-3 opacity-30">📷</span>
+                  <p className="text-sm font-bold text-gray-400">Analiz Edilecek Fotoğrafı Seç</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">2. Hedef Kitle & Ton</h3>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Platform</label>
+                <div className="flex gap-3">
+                  {['instagram', 'trendyol', 'global'].map((p) => (
+                    <button 
+                      key={p}
+                      onClick={() => setPlatform(p)}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize transition-all ${platform === p ? 'bg-black text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Yazı Dili</label>
+                <select 
+                  className="w-full p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm font-medium focus:ring-2 focus:ring-yellow-400 outline-none appearance-none"
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                >
+                  <option value="samimi">Samimi & Emoji Dolu 🚀</option>
+                  <option value="kurumsal">Resmi & Teknik Detaylı 👔</option>
+                  <option value="hype">Heyecanlı & Kampanya Odaklı 🔥</option>
+                </select>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={!uploadedImage || processing}
+              className="w-full mt-8 bg-yellow-500 text-black py-4 rounded-xl font-bold shadow-lg hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 hover:scale-[1.02]"
+            >
+              {processing ? "Yazar Düşünüyor..." : "✨ Metni Oluştur (1 Kredi)"}
+            </button>
+          </div>
+        </div>
+
+        {/* SAĞ: SONUÇ (NOT DEFTERİ GÖRÜNÜMÜ) */}
+        <div className="bg-[#fff9c4]/10 rounded-[2.5rem] border border-yellow-100 p-2 h-full min-h-[600px] flex flex-col relative">
+           <div className="absolute inset-0 bg-yellow-50/50 rounded-[2.5rem] -z-10"></div>
+           
+           <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 h-full flex flex-col relative overflow-hidden">
+              <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                 <div className="flex items-center gap-3">
+                    <span className="w-3 h-3 rounded-full bg-red-400"></span>
+                    <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                    <span className="w-3 h-3 rounded-full bg-green-400"></span>
+                 </div>
+                 {generatedText && (
+                   <button onClick={copyToClipboard} className="text-xs bg-black text-white px-4 py-2 rounded-full font-bold hover:bg-gray-800 transition-colors flex items-center gap-2">
+                     📋 Kopyala
+                   </button>
+                 )}
+              </div>
+
+              <div className="flex-1 relative">
+                 <textarea 
+                   value={generatedText}
+                   onChange={(e) => setGeneratedText(e.target.value)}
+                   placeholder="Yapay zeka sonucu buraya yazacak..."
+                   className="w-full h-full p-2 bg-transparent border-none text-gray-700 text-lg leading-loose resize-none focus:ring-0 outline-none font-medium font-mono"
+                 />
+                 
+                 {processing && (
+                   <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm z-10">
+                      <div className="text-5xl animate-bounce mb-4">✍️</div>
+                      <p className="text-gray-500 font-bold animate-pulse">Kelimeler seçiliyor...</p>
+                   </div>
+                 )}
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-xs text-gray-400 font-mono">
+                 <span>{generatedText.length} Karakter</span>
+                 <span>AI Copywriter v2.0</span>
+              </div>
+           </div>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/ghost/page.tsx
+================================================================================
+"use client";
+
+import { useState, useRef } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+
+export default function GhostPage() {
+  const [loading, setLoading] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [bgType, setBgType] = useState<'transparent' | 'white'>('white');
+  const [sliderPosition, setSliderPosition] = useState(50);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadedImage(URL.createObjectURL(e.target.files[0]));
+      setResultImage(null);
+    }
+  };
+
+  const handleProcess = () => {
+    if (!uploadedImage) return;
+    setLoading(true);
+    setTimeout(() => {
+      setResultImage("https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&h=800&fit=crop"); 
+      setLoading(false);
+    }, 2500);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10 flex flex-col md:flex-row justify-between items-end border-b border-gray-100 pb-6">
+        <div>
+           <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Hayalet Manken 👻</h1>
+           <p className="text-gray-500 mt-2 text-lg">Mankeni sil, sadece ürünü bırak. E-ticaret için dekupe çözümü.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        
+        {/* SOL: KONTROL */}
+        <div className="space-y-8">
+           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 text-center relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-blue-500"></div>
+              
+              {!uploadedImage ? (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-[2rem] p-16 cursor-pointer hover:bg-purple-50/50 hover:border-purple-300 transition-all group"
+                >
+                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                     <span className="text-4xl">🧥</span>
+                   </div>
+                   <h3 className="font-bold text-gray-900 text-xl">Fotoğrafı Buraya Bırak</h3>
+                   <p className="text-gray-500 mt-2">veya tıklayarak seç</p>
+                </div>
+              ) : (
+                <div className="relative rounded-3xl overflow-hidden shadow-lg border border-gray-100 group">
+                   <img src={uploadedImage} className="w-full h-[500px] object-contain bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-gray-50" />
+                   <button 
+                     onClick={() => {setUploadedImage(null); setResultImage(null);}}
+                     className="absolute top-4 right-4 bg-white/90 text-red-500 p-3 rounded-full shadow-xl hover:scale-110 transition-transform"
+                   >
+                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                   </button>
+                </div>
+              )}
+           </div>
+
+           {uploadedImage && (
+             <motion.div 
+               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+               className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100"
+             >
+                <h3 className="font-bold text-gray-900 mb-6 text-lg">Çıktı Ayarları</h3>
+                
+                <div className="flex gap-4 mb-8">
+                   {['white', 'transparent'].map((mode) => (
+                     <button 
+                       key={mode}
+                       onClick={() => setBgType(mode as any)}
+                       className={`flex-1 py-6 rounded-2xl border-2 text-sm font-bold flex flex-col items-center gap-3 transition-all ${bgType === mode ? 'border-purple-600 bg-purple-50 text-purple-900' : 'border-gray-100 text-gray-400 hover:border-gray-200'}`}
+                     >
+                        <div className={`w-8 h-8 rounded-full border border-gray-200 ${mode === 'white' ? 'bg-white' : 'bg-[url(https://grainy-gradients.vercel.app/noise.svg)] opacity-50'}`}></div>
+                        {mode === 'white' ? 'Beyaz Fon' : 'Şeffaf (PNG)'}
+                     </button>
+                   ))}
+                </div>
+
+                <button 
+                  onClick={handleProcess}
+                  disabled={loading}
+                  className="w-full bg-black text-white py-5 rounded-2xl font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <span>✨ Sihri Başlat</span>
+                      <span className="text-xs font-normal opacity-70 bg-white/20 px-2 py-0.5 rounded">1 Kredi</span>
+                    </>
+                  )}
+                </button>
+             </motion.div>
+           )}
+        </div>
+
+        {/* SAĞ: SLIDER SONUÇ */}
+        <div className="bg-gray-50 rounded-[3rem] border border-gray-200 p-3 h-full min-h-[600px] flex flex-col">
+           {resultImage && uploadedImage ? (
+             <div className="relative w-full h-full flex-1 rounded-[2.5rem] overflow-hidden cursor-ew-resize select-none shadow-inner bg-white"
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    setSliderPosition((x / rect.width) * 100);
+                  }}
+                  onTouchMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.touches[0].clientX - rect.left;
+                    setSliderPosition((x / rect.width) * 100);
+                  }}
+             >
+                <img src={resultImage} className="absolute inset-0 w-full h-full object-contain p-8" draggable="false" />
+                <div className="absolute top-6 right-6 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10">SONUÇ</div>
+
+                <div 
+                  className="absolute inset-0 w-full h-full border-r-4 border-white bg-gray-100"
+                  style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
+                >
+                   <img src={uploadedImage} className="absolute inset-0 w-full h-full object-contain p-8" draggable="false" />
+                   <div className="absolute top-6 left-6 bg-black/80 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full">ORİJİNAL</div>
+                </div>
+
+                <div 
+                  className="absolute inset-y-0 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center text-gray-400 z-20 top-1/2 -translate-y-1/2 -ml-6 pointer-events-none"
+                  style={{ left: `${sliderPosition}%` }}
+                >
+                  ↔
+                </div>
+
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30">
+                   <button className="bg-black text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 transition-transform text-sm flex items-center gap-2">
+                     <span>⬇️</span> İndir (Yüksek Kalite)
+                   </button>
+                </div>
+             </div>
+           ) : (
+             <div className="h-full flex flex-col items-center justify-center text-gray-300 p-10 text-center">
+                <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center text-6xl mb-6 shadow-inner">👻</div>
+                <h3 className="text-gray-400 font-bold text-xl">Önizleme Alanı</h3>
+                <p className="text-sm mt-3 max-w-xs opacity-70">Sol taraftan fotoğraf yükleyip işlemi başlattığında sonuç burada görünecek.</p>
+             </div>
+           )}
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/layout.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import Sidebar from "@/components/Sidebar";
+import Link from "next/link";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  return (
+    <div className="flex min-h-screen bg-[#f8f9fc]">
+      
+      {/* MOBİL SIDEBAR (Drawer) */}
+      <div className={`fixed inset-0 z-50 lg:hidden transition-all duration-300 ${isSidebarOpen ? 'visible' : 'invisible'}`}>
+        {/* Karartma Katmanı */}
+        <div 
+          className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+        
+        {/* Sidebarın Kendisi */}
+        <div className={`absolute left-0 top-0 bottom-0 w-64 bg-[#0a0a0a] transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+           <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        </div>
+      </div>
+
+      {/* MASAÜSTÜ SIDEBAR (Sabit) */}
+      <div className="hidden lg:block w-64 flex-shrink-0">
+         <div className="fixed top-0 left-0 h-full w-64">
+            <Sidebar />
+         </div>
+      </div>
+      
+      {/* İÇERİK ALANI */}
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-0">
+        
+        {/* MOBİL HEADER (Sadece küçük ekranda görünür) */}
+        <div className="lg:hidden bg-white/80 backdrop-blur-md border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-40">
+           <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-lg">B</div>
+              <span className="font-bold text-lg">butikmodel.ai</span>
+           </div>
+           <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-gray-100 rounded-lg">
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+           </button>
+        </div>
+
+        {/* Sayfa İçeriği */}
+        <div className="flex-1 overflow-y-auto">
+           {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/my-models/page.tsx
+================================================================================
+"use client";
+
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+
+export default function MyModelsPage() {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [myModels, setMyModels] = useState<any[]>([]);
+  
+  // DNA Parametreleri
+  const [attributes, setAttributes] = useState({
+    gender: "Kadın",
+    age: "Genç (20-25)",
+    ethnicity: "Türk / Akdeniz",
+    hairColor: "Kahverengi",
+    hairStyle: "Uzun Düz",
+    eyeColor: "Ela",
+    bodySize: "Fit / Atletik",
+    height: "Orta Boy"
+  });
+
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [modelName, setModelName] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchModels();
+  }, []);
+
+  const fetchModels = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("user_models")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (data) setMyModels(data);
+    }
+  };
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    let bodyPrompt = "fit body";
+    if (attributes.bodySize === "Zayıf / İnce") bodyPrompt = "slim skinny body model";
+    if (attributes.bodySize === "Balık Etli / Kıvrımlı") bodyPrompt = "curvy volumetric body shape";
+    if (attributes.bodySize === "Büyük Beden (Plus Size)") bodyPrompt = "plus size full figure model";
+    if (attributes.bodySize === "Kaslı / Yapılı") bodyPrompt = "muscular athletic body";
+
+    const prompt = `Professional studio full body shot of a ${attributes.age} year old ${attributes.ethnicity} ${attributes.gender}, ${bodyPrompt}, ${attributes.height}, ${attributes.hairStyle} ${attributes.hairColor} hair, ${attributes.eyeColor} eyes, hyper realistic, 8k, fashion photography, neutral background`;
+    console.log("🧬 DNA Kodlanıyor:", prompt);
+    
+    setTimeout(() => {
+      const demoImages = [
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=600&fit=crop",
+        "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=500&h=600&fit=crop",
+        "https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=500&h=600&fit=crop"
+      ];
+      setGeneratedImage(demoImages[Math.floor(Math.random() * demoImages.length)]);
+      setLoading(false);
+    }, 2500);
+  };
+
+  const handleSave = async () => {
+    if (!generatedImage || !modelName) return alert("Lütfen mankene bir isim verin!");
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from("user_models").insert({
+      user_id: user.id,
+      name: modelName,
+      image_url: generatedImage,
+      attributes: attributes
+    });
+
+    if (error) {
+      alert("Hata: " + error.message);
+    } else {
+      setGeneratedImage(null);
+      setModelName("");
+      fetchModels();
+      alert("Manken koleksiyonuna eklendi! 🎉");
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm("Bu mankeni silmek istediğine emin misin?")) return;
+    await supabase.from("user_models").delete().eq("id", id);
+    fetchModels();
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10 flex flex-col md:flex-row justify-between items-end border-b border-gray-100 pb-6">
+        <div>
+           <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Manken Fabrikası 🧬</h1>
+           <p className="text-gray-500 mt-2 text-lg">Markana özel yapay zeka mankeni tasarla.</p>
+        </div>
+        <Link href="/dashboard/studio" className="mt-4 md:mt-0 text-sm font-bold text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-full transition-colors">
+           Stüdyoya Dön →
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* SOL: DNA AYARLARI */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2 text-lg">
+              <span className="w-2 h-6 bg-black rounded-full"></span>
+              DNA Profili
+            </h3>
+            
+            <div className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Vücut Tipi</label>
+                <select 
+                  className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-bold focus:ring-2 focus:ring-black outline-none appearance-none"
+                  value={attributes.bodySize}
+                  onChange={(e) => setAttributes({...attributes, bodySize: e.target.value})}
+                >
+                  <option>Zayıf / İnce</option>
+                  <option>Fit / Atletik</option>
+                  <option>Balık Etli / Kıvrımlı</option>
+                  <option>Kaslı / Yapılı</option>
+                  <option>Büyük Beden (Plus Size)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs font-bold text-gray-400 mb-1.5">Cinsiyet</label>
+                   <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" value={attributes.gender} onChange={(e) => setAttributes({...attributes, gender: e.target.value})}>
+                     <option>Kadın</option>
+                     <option>Erkek</option>
+                   </select>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-gray-400 mb-1.5">Boy</label>
+                   <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" value={attributes.height} onChange={(e) => setAttributes({...attributes, height: e.target.value})}>
+                     <option>Kısa</option>
+                     <option>Orta Boy</option>
+                     <option>Uzun</option>
+                   </select>
+                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">Etnik Köken</label>
+                <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" value={attributes.ethnicity} onChange={(e) => setAttributes({...attributes, ethnicity: e.target.value})}>
+                  <option>Türk / Akdeniz</option>
+                  <option>Kuzey Avrupa (Sarışın)</option>
+                  <option>Doğu Asya</option>
+                  <option>Afro-Amerikan</option>
+                  <option>Latin</option>
+                  <option>Arap / Orta Doğu</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">Yaş Grubu</label>
+                <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" value={attributes.age} onChange={(e) => setAttributes({...attributes, age: e.target.value})}>
+                  <option>Genç (18-24)</option>
+                  <option>Yetişkin (25-35)</option>
+                  <option>Olgun (35-45)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                   <label className="block text-xs font-bold text-gray-400 mb-1.5">Saç</label>
+                   <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" onChange={(e) => setAttributes({...attributes, hairColor: e.target.value})}>
+                     <option>Kahverengi</option>
+                     <option>Siyah</option>
+                     <option>Sarı</option>
+                     <option>Kızıl</option>
+                   </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-gray-400 mb-1.5">Göz</label>
+                   <select className="w-full p-3 bg-white rounded-xl border border-gray-200 text-sm font-medium" onChange={(e) => setAttributes({...attributes, eyeColor: e.target.value})}>
+                     <option>Ela</option>
+                     <option>Kahve</option>
+                     <option>Mavi</option>
+                     <option>Yeşil</option>
+                   </select>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  DNA İşleniyor...
+                </>
+              ) : (
+                <>
+                  <span>⚡️ Üretimi Başlat</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* ORTA: LABORATUVAR SONUCU */}
+        <div className="lg:col-span-4 flex flex-col">
+           <div className="bg-white p-6 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 flex-1 flex flex-col relative h-full min-h-[500px]">
+             <h3 className="font-bold text-gray-900 mb-4 text-center">Önizleme</h3>
+             
+             <div className="flex-1 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
+                {loading ? (
+                   <div className="text-center">
+                      <div className="text-6xl animate-bounce mb-6">🧬</div>
+                      <p className="text-gray-400 font-bold text-sm">Genetik kod işleniyor...</p>
+                   </div>
+                ) : generatedImage ? (
+                   <>
+                     <img src={generatedImage} className="w-full h-full object-cover" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                        <span className="text-white text-xs font-mono bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30">
+                          {attributes.ethnicity}, {attributes.bodySize}
+                        </span>
+                     </div>
+                   </>
+                ) : (
+                   <div className="text-center text-gray-300 p-8">
+                      <span className="text-6xl opacity-30 block mb-4">👤</span>
+                      <p className="text-sm font-medium">Özellikleri seç ve<br/>üretim butonuna bas.</p>
+                   </div>
+                )}
+             </div>
+
+             {generatedImage && !loading && (
+               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-3">
+                  <input 
+                    type="text" 
+                    placeholder="Mankene İsim Ver (Örn: Leyla)" 
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex justify-center items-center gap-2"
+                  >
+                    {saving ? "Kaydediliyor..." : "💾 Koleksiyona Ekle"}
+                  </button>
+               </motion.div>
+             )}
+           </div>
+        </div>
+
+        {/* SAĞ: KOLEKSİYON */}
+        <div className="lg:col-span-4 flex flex-col h-full">
+           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 h-full flex flex-col max-h-[800px]">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-gray-900 text-lg">Koleksiyonum</h3>
+                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">{myModels.length}</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                 {myModels.map((model) => (
+                   <div key={model.id} className="flex gap-4 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group relative bg-gray-50/50">
+                      <img src={model.image_url} className="w-20 h-24 rounded-xl object-cover bg-gray-200 shadow-sm" />
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                         <h4 className="font-bold text-gray-900 truncate">{model.name}</h4>
+                         <p className="text-xs text-gray-500 truncate mt-1">{model.attributes?.bodySize}</p>
+                         <p className="text-[10px] text-gray-400 mt-1">{new Date(model.created_at).toLocaleDateString("tr-TR")}</p>
+                      </div>
+                      <button 
+                        onClick={() => handleDelete(model.id)}
+                        className="self-center p-2 text-gray-300 hover:text-red-500 transition-colors hover:bg-red-50 rounded-full"
+                        title="Sil"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                      </button>
+                   </div>
+                 ))}
+
+                 {myModels.length === 0 && (
+                   <div className="text-center py-20 border-2 border-dashed border-gray-100 rounded-3xl">
+                      <p className="text-gray-400 text-sm">Henüz manken üretmedin.</p>
+                   </div>
+                 )}
+              </div>
+           </div>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/page.tsx
+================================================================================
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion"; // EKLENDİ
+
+export default function DashboardHome() {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [modelCount, setModelCount] = useState(0);
+  
+  const router = useRouter();
+
+  useEffect(() => {
+    async function getData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+      
+      setProfile(profileData);
+
+      const { count } = await supabase
+        .from("user_models")
+        .select("*", { count: 'exact', head: true })
+        .eq("user_id", session.user.id);
+      
+      setModelCount(count || 0);
+      setLoading(false);
+    }
+    getData();
+  }, [router]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+    </div>
+  );
+
+  // Animasyon varyasyonları
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1 // Elemanlar sırayla gelsin
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
+  return (
+    <motion.div 
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="p-8 min-h-screen font-sans pb-20 max-w-7xl mx-auto"
+    >
+      
+      {/* 1. ÜST BAŞLIK */}
+      <motion.div variants={item} className="flex flex-col md:flex-row justify-between items-end mb-10 pb-6 border-b border-gray-100">
+        <div>
+           <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">KOMUTA MERKEZİ</span>
+           <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mt-1">
+             Hoş geldin, {profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Patron'} 👋
+           </h1>
+           <p className="text-gray-500 mt-2">Bugün markanı bir üst seviyeye taşımaya hazır mısın?</p>
+        </div>
+        
+        <div className="mt-4 md:mt-0 flex items-center gap-3">
+           <div className={`px-4 py-2 rounded-full text-xs font-bold border ${profile?.membership_tier === 'pro' ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>
+              {profile?.membership_tier === 'pro' ? 'PRO PLAN ⚡️' : 'ÜCRETSİZ PLAN'}
+           </div>
+           <Link href="/dashboard/profile" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-bold transition shadow-lg shadow-blue-200">
+              Kredi Yükle
+           </Link>
+        </div>
+      </motion.div>
+
+      {/* 2. DURUM KARTLARI */}
+      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        
+        {/* KREDİ KARTI */}
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="bg-gradient-to-br from-[#1a1a1a] to-[#000000] text-white rounded-2xl p-6 shadow-xl relative overflow-hidden group cursor-pointer" 
+          onClick={() => router.push('/dashboard/profile')}
+        >
+           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+           </div>
+           <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-3">MEVCUT BAKİYE</p>
+           <div className="flex items-baseline gap-2">
+             <span className="text-5xl font-extrabold tracking-tight">{profile?.credits || 0}</span>
+             <span className="text-sm font-medium text-gray-400">Kredi</span>
+           </div>
+           <div className="mt-6 flex items-center gap-2 text-xs text-gray-400">
+             <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+             <span>Hesap Aktif</span>
+           </div>
+        </motion.div>
+
+        {/* MANKEN SAYISI */}
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-blue-200 transition-colors" 
+          onClick={() => router.push('/dashboard/my-models')}
+        >
+           <div className="absolute top-4 right-4 bg-blue-50 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+             👤
+           </div>
+           <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-3">KADRODAKİ MANKENLER</p>
+           <div className="text-4xl font-extrabold text-gray-900">{modelCount}</div>
+           <p className="text-sm text-gray-500 mt-2">Senin için çalışan dijital modeller.</p>
+           <div className="mt-4 text-blue-600 text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+             Yenisini Ekle →
+           </div>
+        </motion.div>
+
+        {/* SONUÇLAR */}
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative overflow-hidden group cursor-pointer hover:border-purple-200 transition-colors"
+        >
+           <div className="absolute top-4 right-4 bg-purple-50 text-purple-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+             🚀
+           </div>
+           <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-3">SON AKTİVİTE</p>
+           <div className="text-4xl font-extrabold text-gray-900">0</div>
+           <p className="text-sm text-gray-500 mt-2">Bugün üretilen görsel sayısı.</p>
+           <div className="mt-4 text-purple-600 text-xs font-bold">
+             Henüz işlem yapılmadı
+           </div>
+        </motion.div>
+      </motion.div>
+
+      {/* 3. ARAÇLAR GRID */}
+      <motion.h2 variants={item} className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+        <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
+        Üretim Araçları
+      </motion.h2>
+      
+      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+         
+         {/* ARAÇ KARTLARI */}
+         {[
+           { title: "Sanal Stüdyo", desc: "Kıyafetleri mankenlere giydir.", icon: "📸", color: "blue", link: "/dashboard/studio" },
+           { title: "Hayalet Manken", desc: "Mankeni sil, sadece kıyafeti bırak.", icon: "👻", color: "purple", link: "/dashboard/ghost" },
+           { title: "Atmosfer", desc: "Dükkan çekimini Paris'e taşı.", icon: "🎨", color: "green", link: "/dashboard/background" },
+           { title: "Metin Yazarı", desc: "Instagram için açıklama yazdır.", icon: "✍️", color: "yellow", link: "/dashboard/copywriter" }
+         ].map((tool, i) => (
+            <Link key={i} href={tool.link}>
+              <motion.div 
+                whileHover={{ scale: 1.03, rotate: 1 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all h-full group"
+              >
+                <div className={`w-14 h-14 bg-${tool.color}-50 text-${tool.color}-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-${tool.color}-600 group-hover:text-white transition-colors`}>
+                  {tool.icon}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">{tool.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{tool.desc}</p>
+              </motion.div>
+            </Link>
+         ))}
+
+      </motion.div>
+
+      {/* 4. ALT BİLGİ */}
+      <motion.div variants={item} className="mt-12 bg-gray-50 rounded-xl p-4 flex items-center justify-between text-xs text-gray-500 border border-gray-100">
+         <div className="flex items-center gap-4">
+            <span className="flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Yapay Zeka: <strong>Aktif</strong></span>
+            <span className="hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Veritabanı: <strong>Bağlı</strong></span>
+         </div>
+         <div>
+            butikmodel.com <span className="font-bold">v2.0</span>
+         </div>
+      </motion.div>
+
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/profile/page.tsx
+================================================================================
+"use client";
+
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+
+export default function ProfilePage() {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  
+  const router = useRouter();
+
+  useEffect(() => {
+    async function getData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+
+      // Profil verisini (Kredi bilgisini) çek
+      let { data, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+      
+      // Eğer profil yoksa oluştur (Hata önleyici)
+      if (!data) {
+         const { data: newProfile } = await supabase.from("profiles").insert({ id: session.user.id, credits: 5 }).select().single();
+         data = newProfile;
+      }
+      
+      setProfile(data);
+      setLoading(false);
+    }
+    getData();
+  }, [router]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
+  const handleBuyCredits = async (amount: number, price: number) => {
+    if(!profile) return;
+    setPurchasing(true);
+
+    // SİMÜLASYON: Gerçek ödeme sistemi (Iyzico) buraya bağlanacak.
+    // Şimdilik demo olduğu için direkt yüklüyoruz.
+    setTimeout(async () => {
+       const newBalance = (profile.credits || 0) + amount;
+       
+       const { error } = await supabase
+         .from("profiles")
+         .update({ credits: newBalance })
+         .eq("id", user.id);
+
+       if (!error) {
+         setProfile({ ...profile, credits: newBalance });
+         alert(`🎉 Ödeme Başarılı! ${amount} Kredi hesabına yüklendi.`);
+       } else {
+         alert("Bir hata oluştu.");
+       }
+       setPurchasing(false);
+    }, 1500);
+  };
+
+  if (loading) return <div className="p-10 text-center">Yükleniyor...</div>;
+
+  return (
+    <div className="p-8 min-h-screen pb-20 font-sans max-w-5xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+           <h1 className="text-3xl font-bold text-gray-900">Hesabım & Kredilerim 💳</h1>
+           <p className="text-gray-500 mt-2">{user?.email}</p>
+        </div>
+        <button 
+          onClick={handleLogout} 
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50 transition"
+        >
+          Çıkış Yap 🚪
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+         {/* CÜZDAN KARTI */}
+         <div className="col-span-1 bg-gradient-to-br from-black to-gray-800 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+               <span className="text-9xl">💎</span>
+            </div>
+            <p className="text-gray-400 font-medium mb-2">Mevcut Bakiyen</p>
+            <div className="text-6xl font-extrabold mb-4">{profile?.credits || 0}</div>
+            <div className="inline-block bg-white/20 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md">
+               1 Kredi = 1 Fotoğraf
+            </div>
+         </div>
+
+         {/* PAKETLER */}
+         <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { name: "Başlangıç", credits: 50, price: 499, color: "bg-white border-gray-200" },
+              { name: "Butik Pro", credits: 200, price: 999, color: "bg-blue-50 border-blue-200 ring-1 ring-blue-200", badge: "POPÜLER" },
+              { name: "Ajans", credits: 1000, price: 2499, color: "bg-white border-gray-200" },
+            ].map((pkg, i) => (
+               <div key={i} className={`p-6 rounded-2xl border flex flex-col justify-between relative hover:scale-105 transition-transform cursor-pointer ${pkg.color}`}>
+                  {pkg.badge && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">{pkg.badge}</span>}
+                  
+                  <div className="text-center">
+                    <h3 className="font-bold text-gray-800">{pkg.name}</h3>
+                    <p className="text-3xl font-extrabold my-3 text-gray-900">{pkg.credits}</p>
+                    <p className="text-xs text-gray-500">Kredi</p>
+                  </div>
+
+                  <button 
+                    onClick={() => handleBuyCredits(pkg.credits, pkg.price)}
+                    disabled={purchasing}
+                    className="w-full mt-4 py-2 rounded-lg bg-gray-900 text-white text-xs font-bold hover:bg-black transition"
+                  >
+                    {purchasing ? "..." : `₺${pkg.price} Satın Al`}
+                  </button>
+               </div>
+            ))}
+         </div>
+      </div>
+
+      {/* AYARLAR ALANI */}
+      <div className="bg-white p-8 rounded-2xl border border-gray-100">
+         <h3 className="font-bold text-gray-800 mb-6 pb-4 border-b">Hesap Ayarları</h3>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-2">E-Posta Adresi</label>
+               <input type="text" value={user?.email} disabled className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed" />
+            </div>
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-2">Şifre</label>
+               <button className="w-full p-3 border border-gray-200 rounded-lg text-left text-gray-600 hover:bg-gray-50 transition flex justify-between items-center">
+                  <span>••••••••</span>
+                  <span className="text-xs text-blue-600 font-bold">Değiştir</span>
+               </button>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/settings/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState("general");
+
+  return (
+    <div className="p-8 min-h-screen font-sans max-w-5xl mx-auto pb-20">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Ayarlar ⚙️</h1>
+
+      <div className="flex flex-col lg:flex-row gap-8">
+        
+        {/* SOL MENÜ */}
+        <div className="w-full lg:w-64 flex-shrink-0">
+           <nav className="flex flex-col gap-2">
+              {['Genel', 'Faturalandırma', 'Bildirimler', 'Güvenlik'].map((item) => {
+                 const id = item.toLowerCase(); // basitleştirilmiş id
+                 const isActive = activeTab === id || (activeTab === 'general' && id === 'genel');
+                 return (
+                   <button 
+                     key={item}
+                     onClick={() => setActiveTab(id === 'genel' ? 'general' : id)}
+                     className={`text-left px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-black text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                   >
+                     {item}
+                   </button>
+                 )
+              })}
+           </nav>
+        </div>
+
+        {/* SAĞ İÇERİK */}
+        <div className="flex-1 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm min-h-[500px]">
+           
+           {activeTab === 'general' && (
+             <div className="space-y-6">
+                <h3 className="text-xl font-bold border-b pb-4">Genel Bilgiler</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-2">Marka Adı</label>
+                      <input type="text" placeholder="Butik İsmi" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-black" />
+                   </div>
+                   <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-2">Web Sitesi</label>
+                      <input type="text" placeholder="www.siteniz.com" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-black" />
+                   </div>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-gray-500 mb-2">Varsayılan Dil</label>
+                   <select className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none">
+                      <option>Türkçe</option>
+                      <option>English</option>
+                   </select>
+                </div>
+                <button className="bg-black text-white px-6 py-3 rounded-xl font-bold text-sm">Değişiklikleri Kaydet</button>
+             </div>
+           )}
+
+           {/* Diğer sekmeler için placeholder */}
+           {activeTab !== 'general' && (
+             <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <span className="text-4xl mb-4">🚧</span>
+                <p>Bu ayar paneli yapım aşamasındadır.</p>
+             </div>
+           )}
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/studio/page.tsx
+================================================================================
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+
+export default function StudioPage() {
+  const [user, setUser] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  
+  // Resimler
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [userPrompt, setUserPrompt] = useState("");
+  
+  // Manken Yönetimi (3 KATEGORİ)
+  const [activeTab, setActiveTab] = useState<'system' | 'generated' | 'face'>('system');
+  
+  const [systemModels, setSystemModels] = useState<any[]>([]); // Hazır Havuz
+  const [userModels, setUserModels] = useState<any[]>([]);     // Lab (Yapay)
+  const [customFaceModels, setCustomFaceModels] = useState<any[]>([]); // Dijital İkizler
+  
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function initData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
+      setUser(session.user);
+
+      // Verileri Çek
+      const { data: sysData } = await supabase.from("system_models").select("*").order("name");
+      if (sysData) setSystemModels(sysData);
+
+      const { data: usrData } = await supabase.from("user_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+      if (usrData) setUserModels(usrData);
+
+      const { data: faceData } = await supabase.from("custom_face_models").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+      if (faceData) setCustomFaceModels(faceData);
+    }
+    initData();
+  }, [router]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0]) return;
+    const file = event.target.files[0];
+    setUploadedImage(URL.createObjectURL(file));
+    setUploadedPath("demo_path.jpg"); 
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedModel) { alert("Lütfen bir manken seçin!"); return; }
+    setProcessing(true);
+    setStatusMessage("Set hazırlanıyor...");
+
+    try {
+      const allModels = [...systemModels, ...userModels, ...customFaceModels];
+      const targetModel = allModels.find(m => m.id === selectedModel);
+      
+      const finalPrompt = `Professional photo of model (${targetModel?.name}) wearing the uploaded cloth. Scene: ${userPrompt || "Studio"}.`;
+      console.log("🚀 KOMUT:", finalPrompt);
+
+      setStatusMessage("Sahne kuruluyor: " + (userPrompt || "Stüdyo Ortamı"));
+      
+      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
+      if (profile) {
+        await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
+      }
+
+      setTimeout(() => {
+        setResultImage("https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop");
+        setStatusMessage("✅ Çekim Tamamlandı!");
+        setProcessing(false);
+      }, 3000);
+
+    } catch (error: any) {
+      alert("Hata: " + error.message);
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+      className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
+    >
+      <div className="mb-10 flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Sanal Stüdyo 📸</h1>
+          <p className="text-gray-500 mt-2 text-lg">Profesyonel moda çekimi, saniyeler içinde.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* SOL KOLON: GİRDİLER (Bento Kart 1) */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* 1. KIYAFET YÜKLEME */}
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-[2rem] -mr-4 -mt-4 z-0"></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 relative z-10">
+              <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">1</span>
+              Kıyafet
+            </h3>
+            
+            <div onClick={() => fileInputRef.current?.click()} className={`relative border-2 border-dashed rounded-2xl h-64 flex flex-col items-center justify-center cursor-pointer transition-all z-10 bg-gray-50/50 ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30'}`}>
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+              {uploadedImage ? (
+                <img src={uploadedImage} className="h-full w-full object-contain rounded-xl p-2" />
+              ) : (
+                <div className="text-center p-6">
+                  <span className="text-4xl block mb-2 opacity-30">👕</span>
+                  <p className="text-sm font-bold text-gray-400">Fotoğrafı Sürükle</p>
+                  <p className="text-xs text-gray-300 mt-1">veya tıklayarak seç</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. SAHNE AYARLARI */}
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 relative z-10">
+              <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">3</span>
+              Mekan & Işık
+            </h3>
+            <textarea 
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+              placeholder="Örn: Paris sokaklarında, yumuşak gün ışığı, arkada flu mağaza vitrinleri..."
+              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-black outline-none min-h-[120px] resize-none transition-all focus:bg-white"
+            />
+          </div>
+
+        </div>
+
+        {/* ORTA KOLON: MANKEN SEÇİMİ (Bento Kart 2) */}
+        <div className="lg:col-span-5 flex flex-col">
+          <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100 border border-gray-100 h-full flex flex-col">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="bg-black text-white w-7 h-7 flex items-center justify-center rounded-full text-xs">2</span>
+                  Cast Ajansı
+                </h3>
+                {activeTab === 'generated' && <Link href="/dashboard/my-models" className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-bold hover:bg-black">+ Yeni Üret</Link>}
+                {activeTab === 'face' && <Link href="/dashboard/train-model" className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-bold hover:bg-black">+ Yüz Ekle</Link>}
+             </div>
+
+             {/* Modern Tabs */}
+             <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-6">
+                {['system', 'generated', 'face'].map(tab => (
+                  <button 
+                    key={tab}
+                    onClick={() => setActiveTab(tab as any)}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === tab ? 'bg-white text-black shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    {tab === 'system' ? 'Hazır Havuz' : tab === 'generated' ? 'Laboratuvar' : 'Dijital İkiz'}
+                  </button>
+                ))}
+             </div>
+
+             {/* Manken Listesi */}
+             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[400px]">
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Sistem Mankenleri */}
+                  {activeTab === 'system' && systemModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                      {selectedModel === m.id && <div className="absolute top-2 right-2 bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">✓</div>}
+                    </div>
+                  ))}
+
+                  {/* Lab Mankenleri */}
+                  {activeTab === 'generated' && userModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute top-2 left-2 bg-purple-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">AI</div>
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Dijital İkizler */}
+                  {activeTab === 'face' && customFaceModels.map((m) => (
+                    <div key={m.id} onClick={() => setSelectedModel(m.id)} className={`relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${selectedModel === m.id ? 'border-blue-600 ring-4 ring-blue-50' : 'border-transparent hover:border-gray-200'}`}>
+                      <img src={m.cover_image} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute top-2 left-2 bg-blue-600/90 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-1 rounded-full">İKİZ</div>
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6">
+                        <p className="text-white text-xs font-bold text-center">{m.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Boş Durumlar */}
+                {((activeTab === 'generated' && userModels.length === 0) || (activeTab === 'face' && customFaceModels.length === 0)) && (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-100 rounded-2xl">
+                    <span className="text-4xl mb-3 opacity-20">📂</span>
+                    <p className="text-gray-400 text-sm mb-4">Bu kategoride mankenin yok.</p>
+                    <Link href={activeTab === 'generated' ? "/dashboard/my-models" : "/dashboard/train-model"} className="text-xs font-bold text-blue-600 hover:underline">Oluşturmaya Git →</Link>
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+
+        {/* SAĞ KOLON: AKSİYON (Bento Kart 3) */}
+        <div className="lg:col-span-3 space-y-6">
+          <div className="bg-black text-white p-6 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col justify-between h-full min-h-[400px]">
+            {/* Arka plan efekti */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[80px] opacity-20 -mr-16 -mt-16 pointer-events-none"></div>
+            
+            <div>
+              <h3 className="text-xl font-bold mb-6">Prodüksiyon Özeti</h3>
+              <div className="space-y-4 text-sm text-gray-400">
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Kıyafet</span>
+                  <span className={uploadedImage ? "text-green-400 font-bold" : "text-gray-600"}>{uploadedImage ? "Yüklendi" : "Bekleniyor"}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Manken</span>
+                  <span className={selectedModel ? "text-green-400 font-bold" : "text-gray-600"}>{selectedModel ? "Seçildi" : "Bekleniyor"}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                  <span>Maliyet</span>
+                  <span className="text-white font-bold">1 Kredi</span>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerate}
+              disabled={!uploadedImage || !selectedModel || processing}
+              className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-auto"
+            >
+              {processing ? "Motor Çalışıyor..." : "🎬 Çekimi Başlat"}
+            </button>
+          </div>
+
+          {/* Sonuç Alanı (Varsa) */}
+          {resultImage && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-4 rounded-[2rem] shadow-xl border border-green-100"
+            >
+              <img src={resultImage} className="w-full rounded-xl shadow-sm mb-4" />
+              <button className="w-full bg-gray-100 text-gray-900 py-3 rounded-xl font-bold text-sm hover:bg-gray-200">
+                ⬇️ HD İndir
+              </button>
+            </motion.div>
+          )}
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/template.tsx
+================================================================================
+"use client";
+
+import { motion } from "framer-motion";
+
+export default function Template({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }} // Başlangıç: Görünmez ve 20px aşağıda
+      animate={{ opacity: 1, y: 0 }}  // Bitiş: Görünür ve yerinde
+      transition={{ duration: 0.4, ease: "easeOut" }} // Süre: 0.4 saniye, yumuşak duruş
+      className="w-full"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/dashboard/train-model/page.tsx
+================================================================================
+"use client";
+
+import { useState, useRef } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+
+export default function TrainModelPage() {
+  const [modelName, setModelName] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setFiles([...files, ...newFiles]);
+      
+      const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+      setPreviews([...previews, ...newPreviews]);
+    }
+  };
+
+  const handleTrain = async () => {
+    if (!modelName || files.length < 3) {
+      alert("Lütfen bir isim girin ve en az 3 fotoğraf yükleyin.");
+      return;
+    }
+    
+    setProcessing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // 1. SİMÜLASYON: Resimler sunucuya gidiyor ve AI eğitiliyor...
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 2. Veritabanına kaydet (İlk resim kapak fotosu olsun)
+      // Gerçekte storage'a yükleyip o linki alırdık, şimdilik blob linki demo
+      const demoCoverUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop"; 
+
+      const { error } = await supabase.from("custom_face_models").insert({
+        user_id: session.user.id,
+        name: modelName,
+        cover_image: demoCoverUrl, 
+        status: 'ready'
+      });
+
+      if (error) throw error;
+
+      alert("🎉 Dijital İkiz Başarıyla Oluşturuldu!");
+      router.push("/dashboard/studio"); // Stüdyoya geri dön
+
+    } catch (error: any) {
+      alert("Hata: " + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="p-8 min-h-screen font-sans max-w-4xl mx-auto">
+      <div className="mb-8">
+        <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-black mb-4">← Geri Dön</button>
+        <h1 className="text-3xl font-bold text-gray-900">Dijital İkiz Yarat 🧬</h1>
+        <p className="text-gray-500 mt-2">Kendini veya bir başkasını sisteme manken olarak tanıt.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        
+        {/* SOL: YÜKLEME ALANI */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+             <label className="block text-sm font-bold text-gray-700 mb-2">Manken Adı</label>
+             <input 
+               type="text" 
+               value={modelName}
+               onChange={(e) => setModelName(e.target.value)}
+               placeholder="Örn: Burak, Ayşe..." 
+               className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-black"
+             />
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+             <h3 className="font-bold text-gray-800 mb-2">Fotoğraflar ({files.length}/10)</h3>
+             <p className="text-xs text-gray-500 mb-4">Farklı açılardan (ön, yan, boydan) çekilmiş en az 3 fotoğraf yükle.</p>
+             
+             <div className="grid grid-cols-3 gap-2 mb-4">
+                {previews.map((src, i) => (
+                  <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200 relative">
+                    <img src={src} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+                
+                {files.length < 10 && (
+                  <div onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition">
+                    <span className="text-2xl text-gray-400">+</span>
+                    <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
+                  </div>
+                )}
+             </div>
+          </div>
+
+          <button 
+            onClick={handleTrain}
+            disabled={processing || files.length < 3 || !modelName}
+            className="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {processing ? "Yapay Zeka Eğitiliyor..." : "🧠 Analizi Başlat"}
+          </button>
+        </div>
+
+        {/* SAĞ: REHBER */}
+        <div className="bg-blue-50 p-8 rounded-3xl border border-blue-100 h-fit">
+           <h3 className="text-xl font-bold text-blue-900 mb-4">Nasıl İyi Sonuç Alırsın?</h3>
+           <ul className="space-y-4 text-sm text-blue-800">
+             <li className="flex gap-3">
+               <span className="bg-blue-200 text-blue-800 w-6 h-6 flex items-center justify-center rounded-full font-bold text-xs">1</span>
+               <span><strong>Farklı Açılar:</strong> Sadece önden değil, yan profilden ve boydan fotoğraflar da ekle.</span>
+             </li>
+             <li className="flex gap-3">
+               <span className="bg-blue-200 text-blue-800 w-6 h-6 flex items-center justify-center rounded-full font-bold text-xs">2</span>
+               <span><strong>İyi Işık:</strong> Yüzün gölgede kalmasın. Gün ışığı en iyisidir.</span>
+             </li>
+             <li className="flex gap-3">
+               <span className="bg-blue-200 text-blue-800 w-6 h-6 flex items-center justify-center rounded-full font-bold text-xs">3</span>
+               <span><strong>Tek Kişi:</strong> Fotoğrafta yanında başkası olmasın.</span>
+             </li>
+             <li className="flex gap-3">
+               <span className="bg-blue-200 text-blue-800 w-6 h-6 flex items-center justify-center rounded-full font-bold text-xs">4</span>
+               <span><strong>Aksesuar Yok:</strong> Güneş gözlüğü veya şapka takmamaya çalış.</span>
+             </li>
+           </ul>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/globals.css
+================================================================================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 15, 23, 42; /* Slate-900 */
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  /* Hafif Noise Efekti - Premium his verir */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  background-color: #fafafa; /* Çok açık gri zemin */
+}
+
+/* Şık Scrollbar (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* Slate-300 */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* Slate-400 */
+}
+
+/* Seçim Rengi */
+::selection {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Özel Utility Classlar */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Cam Efekti */
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* --- ANIMASYONLAR --- */
+
+/* 1. Sonsuz Kayan Logo Şeridi */
+@keyframes infinite-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-infinite-scroll {
+  animation: infinite-scroll 20s linear infinite;
+}
+
+/* 2. Aurora (Kuzey Işıkları) Arka Plan Efekti */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 8s ease-in-out infinite;
+}
+
+/* 3. Görsel Maskeleme (Yumuşak Geçiş) */
+.mask-gradient-b {
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+
+================================================================================
+DOSYA YOLU: app/layout.tsx
+================================================================================
+import type { Metadata } from "next";
+import { Outfit } from "next/font/google"; // Inter yerine Outfit
+import "./globals.css";
+import NextTopLoader from 'nextjs-toploader';
+
+// Outfit fontunu yapılandır
+const outfit = Outfit({ 
+  subsets: ["latin"],
+  weight: ['300', '400', '500', '600', '700', '800'] 
+});
+
+export const metadata: Metadata = {
+  title: "ButikModel.com | Yapay Zeka Stüdyosu",
+  description: "Manken masrafına son verin. Yapay zeka destekli ürün fotoğrafçılığı.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="tr">
+      <body className={`${outfit.className} antialiased`}>
+        <NextTopLoader 
+          color="#2563eb" // Siyah yerine "Royal Blue" daha teknolojik durur
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #2563eb,0 0 5px #2563eb"
+        />
+        {children}
+      </body>
+    </html>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/legal/layout.tsx
+================================================================================
+export default function LegalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans">
+      <div className="max-w-3xl mx-auto py-20 px-8">
+        <a href="/" className="text-sm font-bold text-gray-500 hover:text-black mb-8 block">← Ana Sayfaya Dön</a>
+        <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/legal/privacy/page.tsx
+================================================================================
+export default function PrivacyPage() {
+  return (
+    <div className="prose prose-lg max-w-none text-gray-600">
+      <h1 className="text-4xl font-extrabold text-gray-900 mb-2">Gizlilik Politikası</h1>
+      <p className="text-sm text-gray-400 mb-10">Son Güncelleme: 16 Ocak 2026</p>
+
+      <p className="lead text-xl text-gray-800 font-medium">
+        ButikModel.com ("Biz", "Şirket") olarak gizliliğinize büyük önem veriyoruz. Bu politika, platformumuzu kullanırken verilerinizin nasıl işlendiğini açıklar.
+      </p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Toplanan Veriler</h3>
+      <p>Hizmetlerimizi kullanırken şu verileri toplarız:</p>
+      <ul className="list-disc pl-5 space-y-2">
+        <li><strong>Hesap Bilgileri:</strong> E-posta adresi, ad ve şifre (şifrelenmiş olarak saklanır).</li>
+        <li><strong>Görsel Veriler:</strong> Sisteme yüklediğiniz kıyafet, manken veya ürün fotoğrafları.</li>
+        <li><strong>Kullanım Verileri:</strong> IP adresi, tarayıcı tipi ve işlem kayıtları (Loglar).</li>
+      </ul>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Görsel İşleme ve Güvenlik</h3>
+      <p>
+        Yüklediğiniz fotoğraflar sadece talep ettiğiniz yapay zeka işlemini gerçekleştirmek (manken giydirme, arkaplan silme vb.) amacıyla sunucularımızda işlenir.
+      </p>
+      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 my-4 text-blue-800 text-sm font-bold">
+        🛡 Yüklenen görseller, işlem tamamlandıktan 24 saat sonra sunucularımızdan otomatik olarak silinir. Asla üçüncü taraflara satılmaz, reklam amaçlı kullanılmaz veya izinsiz paylaşılmaz.
+      </div>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">3. Çerezler (Cookies)</h3>
+      <p>Oturumunuzu açık tutmak, tercihlerinizi hatırlamak ve site performansını analiz etmek için zorunlu ve analitik çerezleri kullanırız.</p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Veri Paylaşımı</h3>
+      <p>Verileriniz, yasal zorunluluklar dışında (mahkeme kararı vb.) hiçbir kurum veya kişiyle paylaşılmaz. Ödeme işlemleri şifreli olarak Iyzico/Stripe altyapısı üzerinden gerçekleşir, kredi kartı bilgileriniz sunucularımızda tutulmaz.</p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. İletişim</h3>
+      <p>Gizlilikle ilgili sorularınız için <a href="/contact" className="text-blue-600 underline">İletişim</a> sayfasından veya <strong>privacy@butikmodel.com</strong> adresinden bize ulaşabilirsiniz.</p>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/legal/terms/page.tsx
+================================================================================
+export default function TermsPage() {
+  return (
+    <div className="prose prose-lg max-w-none text-gray-600">
+      <h1 className="text-4xl font-extrabold text-gray-900 mb-2">Kullanım Koşulları</h1>
+      <p className="text-sm text-gray-400 mb-10">Son Güncelleme: 16 Ocak 2026</p>
+
+      <p>
+        ButikModel.com hizmetlerini kullanarak aşağıdaki şartları kabul etmiş sayılırsınız. Lütfen dikkatlice okuyunuz.
+      </p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Hizmetin Tanımı</h3>
+      <p>ButikModel.com, yapay zeka destekli görsel üretim ve düzenleme hizmeti sunan bir SaaS (Software as a Service) platformudur. Kullanıcılar fotoğraf yükleyerek bu fotoğrafları işleyebilir.</p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Yasaklı Kullanım</h3>
+      <p>Platform üzerinden aşağıdaki içeriklerin üretilmesi veya yüklenmesi kesinlikle yasaktır:</p>
+      <ul className="list-disc pl-5 space-y-2">
+        <li>Yasa dışı, tehditkar, pornografik veya şiddet içeren içerikler.</li>
+        <li>Telif hakkı size ait olmayan veya izinsiz kullanılan ticari markalar.</li>
+        <li>Deepfake, ünlülerin yüzlerini izinsiz kullanma veya başkalarının kimliğini taklit eden içerikler.</li>
+      </ul>
+      <p className="mt-2 text-sm italic">Bu kuralların ihlali durumunda hesabınız uyarı yapılmaksızın kapatılabilir.</p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">3. Ödeme ve İadeler</h3>
+      <p>Satın alınan krediler "dijital ürün" kapsamındadır ve kural olarak iade edilmez. Ancak sistem kaynaklı teknik bir hata durumunda (işlemin başarısız olması vb.) krediniz iade edilir.</p>
+
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Fikri Mülkiyet</h3>
+      <p>Platformda ürettiğiniz görsellerin ticari kullanım hakları (CC0 veya Commercial License) size aittir. ButikModel.com bu görseller üzerinde hak iddia etmez.</p>
+      
+      <h3 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Sorumluluk Reddi</h3>
+      <p>Yapay zeka teknolojisi doğası gereği her zaman %100 mükemmel sonuçlar vermeyebilir. Şirketimiz, dolaylı zararlardan veya veri kaybından sorumlu tutulamaz.</p>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/login/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+export default function LoginPage() {
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false); // Giriş mi, Kayıt mı?
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  
+  const router = useRouter();
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      if (isSignUp) {
+        // KAYIT OLMA İŞLEMİ
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setSuccessMsg("Kayıt başarılı! Lütfen e-posta adresinize gelen onay linkine tıklayın.");
+      } else {
+        // GİRİŞ YAPMA İŞLEMİ
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push("/dashboard"); // Başarılıysa panele at
+      }
+    } catch (error: any) {
+      setErrorMsg(error.message || "Bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white">
+      
+      {/* SOL: GÖRSEL ALANI (MOBİLDE GİZLENEBİLİR) */}
+      <div className="hidden lg:flex flex-col justify-between bg-black text-white p-12 relative overflow-hidden">
+        {/* Arkaplan Görseli */}
+        <div className="absolute inset-0 z-0 opacity-60">
+           <img 
+             src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2574&auto=format&fit=crop" 
+             className="w-full h-full object-cover"
+             alt="Fashion AI" 
+           />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black z-10"></div>
+
+        {/* Logo */}
+        <div className="relative z-20 flex items-center gap-2">
+           <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-black font-bold text-xl">B</div>
+           <span className="font-bold text-xl tracking-tight">butikmodel.ai</span>
+        </div>
+
+        {/* Mesaj */}
+        <div className="relative z-20 max-w-lg">
+           <blockquote className="text-2xl font-medium leading-relaxed mb-6">
+             "Fotoğraf çekimleri için harcadığım zamanı %90 azalttı. Artık sadece tasarımlarıma odaklanabiliyorum."
+           </blockquote>
+           <div className="flex items-center gap-4">
+              <img src="https://randomuser.me/api/portraits/women/44.jpg" className="w-10 h-10 rounded-full border-2 border-white/20" />
+              <div>
+                 <p className="font-bold">Selin Yılmaz</p>
+                 <p className="text-sm text-gray-400">Butik Sahibi, İstanbul</p>
+              </div>
+           </div>
+        </div>
+      </div>
+
+      {/* SAĞ: FORM ALANI */}
+      <div className="flex items-center justify-center p-8 lg:p-24">
+        <div className="w-full max-w-md space-y-8">
+           
+           <div className="text-center lg:text-left">
+              <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+                {isSignUp ? "Hesap Oluştur 🚀" : "Tekrar Hoşgeldin 👋"}
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                {isSignUp ? "2 dakika içinde yapay zeka stüdyonu kur." : "Kaldığın yerden devam et."}
+              </p>
+           </div>
+
+           {/* HATA / BAŞARI MESAJLARI */}
+           {errorMsg && (
+             <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm font-medium border border-red-100 flex items-center gap-2 animate-in slide-in-from-top-2">
+               ⚠️ {errorMsg}
+             </div>
+           )}
+           {successMsg && (
+             <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm font-medium border border-green-100 flex items-center gap-2 animate-in slide-in-from-top-2">
+               📩 {successMsg}
+             </div>
+           )}
+
+           <form onSubmit={handleAuth} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">E-Posta Adresi</label>
+                <input 
+                  type="email" 
+                  required 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                  placeholder="isim@sirketiniz.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
+                <input 
+                  type="password" 
+                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  isSignUp ? "Hemen Kaydol" : "Giriş Yap"
+                )}
+              </button>
+           </form>
+
+           <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">veya</span>
+              </div>
+           </div>
+
+           <div className="text-center text-sm">
+             <span className="text-gray-500">
+               {isSignUp ? "Zaten hesabın var mı?" : "Henüz üye değil misin?"}
+             </span>{" "}
+             <button 
+               onClick={() => {
+                 setIsSignUp(!isSignUp);
+                 setErrorMsg("");
+                 setSuccessMsg("");
+               }}
+               className="font-bold text-black hover:underline transition-all"
+             >
+               {isSignUp ? "Giriş Yap" : "Şimdi Kaydol"}
+             </button>
+           </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: app/page.tsx
+================================================================================
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { motion } from "framer-motion";
+
+export default function Home() {
+  const [activeTab, setActiveTab] = useState("studio");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const toggleFaq = (index: number) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#ffffff] text-gray-900 font-sans selection:bg-black selection:text-white overflow-x-hidden">
+      
+      {/* NAVBAR */}
+      <nav className="fixed top-0 w-full bg-white/70 backdrop-blur-xl z-50 border-b border-gray-100/50 transition-all">
+        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">B</div>
+            <span className="font-bold text-xl tracking-tight text-gray-900">butikmodel<span className="text-gray-400">.com</span></span>
+          </div>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
+            <a href="#features" className="hover:text-black transition-colors">Özellikler</a>
+            <a href="#how-it-works" className="hover:text-black transition-colors">Nasıl Çalışır?</a>
+            <a href="#pricing" className="hover:text-black transition-colors">Fiyatlar</a>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-sm font-bold text-gray-900 hover:text-black transition">Giriş Yap</Link>
+            <Link href="/login" className="px-6 py-2.5 bg-black text-white text-sm font-bold rounded-full hover:bg-gray-800 transition shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform duration-200">
+              Ücretsiz Dene
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* HERO SECTION (AURORA) */}
+      <section className="relative pt-44 pb-32 px-4 overflow-hidden">
+        {/* Canlı Arka Plan Işıkları */}
+        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-blue-200/40 via-purple-200/30 to-transparent rounded-[100%] blur-[80px] -z-10 animate-pulse-slow"></div>
+        
+        <div className="max-w-7xl mx-auto text-center relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm text-gray-600 text-xs font-bold uppercase tracking-wide mb-8"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            Yapay Zeka Destekli Prodüksiyon v2.0
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
+            className="text-6xl md:text-8xl font-extrabold leading-[1.1] tracking-tight mb-6 text-gray-900"
+          >
+            Manken Masrafına <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500">Son Verin.</span>
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.3 }}
+            className="mt-6 text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed"
+          >
+            Kıyafetlerinizi askıda çekin, yapay zekamız saniyeler içinde profesyonel mankenlere giydirsin. Stüdyo, ışık ve model maliyetlerini %90 düşürün.
+          </motion.p>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.5 }}
+            className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            <Link href="/login" className="w-full sm:w-auto px-10 py-4 bg-black text-white font-bold text-lg rounded-full hover:bg-gray-900 transition shadow-2xl hover:shadow-black/25 flex items-center justify-center gap-2 group">
+              <span>Hemen Başla</span>
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+            </Link>
+            <a href="#demo" className="w-full sm:w-auto px-10 py-4 bg-white text-gray-900 border border-gray-200 font-bold text-lg rounded-full hover:bg-gray-50 transition flex items-center justify-center gap-2">
+              <span>Canlı Demo</span>
+            </a>
+          </motion.div>
+
+          {/* INFINITE LOGO SCROLL */}
+          <div className="mt-24 border-y border-gray-100 py-8 overflow-hidden relative bg-white/50 backdrop-blur-sm">
+             <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white to-transparent z-10"></div>
+             <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent z-10"></div>
+             
+             <div className="flex gap-20 animate-infinite-scroll whitespace-nowrap items-center opacity-40 hover:opacity-100 transition-opacity duration-500">
+                {["TRENDYOL", "HEPSİBURADA", "AMAZON", "SHOPIFY", "WOOCOMMERCE", "ZARA", "MANGO", "H&M", "MAVİ", "KOTON", "LCW", "DEFACTO"].map((brand, i) => (
+                   <span key={i} className="text-xl font-black text-gray-900 tracking-widest">{brand}</span>
+                ))}
+                {/* Döngü Pürüzsüzlüğü İçin Tekrar */}
+                {["TRENDYOL", "HEPSİBURADA", "AMAZON", "SHOPIFY", "WOOCOMMERCE", "ZARA", "MANGO", "H&M", "MAVİ", "KOTON", "LCW", "DEFACTO"].map((brand, i) => (
+                   <span key={`dup-${i}`} className="text-xl font-black text-gray-900 tracking-widest">{brand}</span>
+                ))}
+             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DEMO SECTION (INTERAKTIF & GLASS) */}
+      <section id="demo" className="py-32 bg-[#fafafa]">
+        <div className="max-w-6xl mx-auto px-4">
+           <div className="text-center mb-16">
+             <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">Gözlerine İnanamayacaksın</h2>
+             <p className="text-gray-500 text-lg">Sıradan bir fotoğrafı saniyeler içinde satış makinesine dönüştürüyoruz.</p>
+           </div>
+
+           <div className="bg-white rounded-[2.5rem] p-6 md:p-12 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-50 rounded-full blur-[100px] opacity-50 -z-10"></div>
+              
+              <div className="flex flex-col lg:flex-row gap-12 items-center">
+                 
+                 {/* Sol: Kontrol */}
+                 <div className="w-full lg:w-1/3 space-y-8">
+                    <div className="flex gap-2 bg-gray-100 p-1.5 rounded-2xl">
+                       {['studio', 'ghost'].map((tab) => (
+                         <button 
+                           key={tab}
+                           onClick={() => setActiveTab(tab)} 
+                           className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab ? 'bg-white text-black shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                         >
+                           {tab === 'studio' ? 'Sanal Stüdyo' : 'Hayalet Manken'}
+                         </button>
+                       ))}
+                    </div>
+                    
+                    <div className="space-y-6">
+                        <motion.div 
+                          key={activeTab}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <h3 className="text-3xl font-bold text-gray-900 mb-3">
+                            {activeTab === 'studio' ? 'Mankenle Hayat Verin.' : 'Ürünü Ön Plana Çıkarın.'}
+                          </h3>
+                          <p className="text-gray-500 leading-relaxed text-lg">
+                            {activeTab === 'studio' 
+                              ? "Kıyafetlerinizi yükleyin, veritabanımızdaki yüzlerce mankenden (Sarışın, Asyalı, Afro) birine giydirin. Işık ve gölge otomatik ayarlanır."
+                              : "Manken üzerinde çektiğiniz fotoğraftaki insanı siler, sadece kıyafeti bırakır. E-ticaret için mükemmel dekupe."
+                            }
+                          </p>
+                        </motion.div>
+                        
+                        <div className="flex gap-4 items-center pt-4 border-t border-gray-100">
+                           <div className="flex -space-x-3">
+                              {[1,2,3].map(i => (
+                                <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                                   <img src={`https://randomuser.me/api/portraits/women/${40+i}.jpg`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                           </div>
+                           <div className="flex flex-col justify-center text-xs">
+                              <span className="font-bold text-gray-900 text-sm">50+ Manken</span>
+                              <span className="text-gray-500">Seçimini bekliyor</span>
+                           </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 {/* Sağ: Görsel (Sabit Yükseklik) */}
+                 <div className="w-full lg:w-2/3 relative aspect-video bg-gray-100 rounded-3xl overflow-hidden shadow-inner group border border-gray-200/50">
+                    <img 
+                      src={activeTab === 'studio' 
+                        ? "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&h=800&fit=crop" 
+                        : "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=1200&h=800&fit=crop"} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    
+                    {/* Yüzen Badge */}
+                    <div className="absolute bottom-6 left-6 bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 border border-white/50">
+                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                       {activeTab === 'studio' ? 'AI Model: Sarah (Stüdyo)' : 'AI İşlemi: Hayalet Modu'}
+                    </div>
+                 </div>
+
+              </div>
+           </div>
+        </div>
+      </section>
+
+      {/* BENTO GRID FEATURES (YENİ TASARIM) */}
+      <section id="features" className="py-32 px-4 bg-white">
+        <div className="max-w-7xl mx-auto">
+           <div className="text-center mb-20">
+             <span className="text-blue-600 font-bold tracking-widest uppercase text-xs">HİZMETLERİMİZ</span>
+             <h2 className="text-4xl font-extrabold text-gray-900 mt-3">Tam Donanımlı Ajans.</h2>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[350px]">
+              
+              {/* BÜYÜK KART (Stüdyo) */}
+              <div className="md:col-span-2 row-span-2 bg-black rounded-[2.5rem] p-10 text-white relative overflow-hidden group">
+                 <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-4xl font-bold mb-4">Sanal Stüdyo</h3>
+                      <p className="text-gray-400 max-w-md text-lg">Manken, makyöz, kuaför ve fotoğrafçı masraflarını tek kalemde silin. Kıyafeti yükleyin, gerisini bize bırakın.</p>
+                    </div>
+                    <div>
+                      <button className="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-gray-200 transition">Stüdyoyu İncele →</button>
+                    </div>
+                 </div>
+                 <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80" className="absolute right-0 bottom-0 w-3/5 h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-500 mask-gradient-b lg:mask-gradient-l" />
+              </div>
+
+              {/* KART (Ghost) */}
+              <div className="bg-gray-50 rounded-[2.5rem] p-8 border border-gray-100 hover:border-gray-200 transition hover:shadow-xl group flex flex-col justify-between relative overflow-hidden">
+                 <div>
+                   <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center text-3xl mb-6">👻</div>
+                   <h3 className="text-2xl font-bold mb-2">Hayalet Manken</h3>
+                   <p className="text-gray-500">Ürünü mankenden ayırır, dekupe eder. Pazaryerleri için ideal.</p>
+                 </div>
+                 <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-purple-200 rounded-full blur-[50px] opacity-50 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+
+              {/* KART (Atmosfer) */}
+              <div className="bg-blue-50 rounded-[2.5rem] p-8 border border-blue-100 hover:border-blue-200 transition hover:shadow-xl group flex flex-col justify-between relative overflow-hidden">
+                 <div>
+                   <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mb-6">🎨</div>
+                   <h3 className="text-2xl font-bold mb-2">Atmosfer</h3>
+                   <p className="text-gray-600">Dükkan çekimini Paris sokaklarına veya lüks bir kafeye taşıyın.</p>
+                 </div>
+                 <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-200 rounded-full blur-[50px] opacity-50 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+
+              {/* KART (Yazar) */}
+              <div className="md:col-span-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-[2.5rem] p-10 flex items-center justify-between relative overflow-hidden shadow-2xl">
+                 <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-2">
+                       <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-1 rounded">YENİ</span>
+                    </div>
+                    <h3 className="text-3xl font-bold mb-2">Akıllı Metin Yazarı</h3>
+                    <p className="text-gray-400 text-lg">Instagram ve Trendyol için SEO uyumlu açıklamalar yazar.</p>
+                 </div>
+                 <div className="text-8xl opacity-10 absolute right-10 rotate-12">✍️</div>
+              </div>
+
+           </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS (STEP SECTION) */}
+      <section id="how-it-works" className="py-24 bg-white border-t border-gray-100">
+         <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col md:flex-row gap-20 items-center">
+               <div className="flex-1">
+                  <h2 className="text-4xl font-extrabold mb-6 text-gray-900">3 Adımda Profesyonel Çekim.</h2>
+                  <p className="text-gray-500 text-lg mb-10">Karmaşık programlar yok. Fotoğrafçılık bilgisi gerekmez.</p>
+                  
+                  <div className="space-y-10">
+                     {[
+                       { step: 1, title: "Fotoğrafı Yükle", desc: "Ürünü askıda, yerde veya manken üzerinde çekip sisteme yükleyin." },
+                       { step: 2, title: "Ayarlarını Seç", desc: "Hangi manken giysin? Arkaplan neresi olsun? Seçimini yap." },
+                       { step: 3, title: "Sonucu İndir", desc: "Saniyeler içinde 4K kalitesindeki görselin hazır. Paylaşmaya başla." }
+                     ].map((item) => (
+                       <div key={item.step} className="flex gap-6 group">
+                          <div className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-900 flex items-center justify-center font-bold text-xl group-hover:bg-black group-hover:text-white transition-colors shadow-sm">
+                            {item.step}
+                          </div>
+                          <div>
+                             <h4 className="font-bold text-xl mb-1 text-gray-900">{item.title}</h4>
+                             <p className="text-gray-500 leading-relaxed">{item.desc}</p>
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+               <div className="flex-1 relative">
+                  {/* Dekoratif Görsel */}
+                  <div className="aspect-[4/5] bg-gray-900 rounded-[2.5rem] overflow-hidden border-8 border-gray-100 relative shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-700">
+                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 font-bold bg-gradient-to-b from-gray-800 to-black">
+                        <span className="text-6xl mb-4">🚀</span>
+                        <span className="text-gray-400">UYGULAMA ARAYÜZÜ</span>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </section>
+
+      {/* PRICING SECTION */}
+      <section id="pricing" className="py-32 bg-[#fafafa]">
+        <div className="max-w-7xl mx-auto px-4">
+           <div className="text-center mb-20">
+             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Şeffaf Fiyatlandırma</h2>
+             <p className="text-gray-500 text-lg">Gizli ücret yok. Fotoğrafçı masrafının 10'da 1'i.</p>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {/* Plan 1 */}
+              <div className="p-8 rounded-[2rem] bg-white border border-gray-100 hover:border-gray-200 transition hover:shadow-xl flex flex-col">
+                 <h3 className="text-xl font-bold text-gray-500 mb-2">Başlangıç</h3>
+                 <div className="text-5xl font-extrabold text-gray-900 mb-6">₺499<span className="text-sm font-normal text-gray-400">/ay</span></div>
+                 <ul className="space-y-4 text-sm text-gray-600 mb-8 flex-1">
+                   <li className="flex gap-3">✓ 50 Fotoğraf İşleme</li>
+                   <li className="flex gap-3">✓ Standart Mankenler</li>
+                   <li className="flex gap-3">✓ Normal Hız</li>
+                 </ul>
+                 <button className="w-full py-4 rounded-xl bg-gray-50 font-bold text-gray-900 hover:bg-gray-100 transition">Paketi Seç</button>
+              </div>
+
+              {/* Plan 2 (POPÜLER) */}
+              <div className="p-8 rounded-[2rem] bg-black text-white border border-gray-800 transform md:-translate-y-6 shadow-2xl relative flex flex-col">
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">EN ÇOK TERCİH EDİLEN</div>
+                 <h3 className="text-xl font-bold text-gray-400 mb-2">Butik Pro</h3>
+                 <div className="text-5xl font-extrabold mb-6">₺999<span className="text-sm font-normal text-gray-500">/ay</span></div>
+                 <ul className="space-y-4 text-sm text-gray-300 mb-8 flex-1">
+                   <li className="flex gap-3">✓ 200 Fotoğraf İşleme</li>
+                   <li className="flex gap-3">✓ Tüm Premium Mankenler</li>
+                   <li className="flex gap-3">✓ Hayalet Manken Modu</li>
+                   <li className="flex gap-3">✓ Yüksek Hız & Öncelik</li>
+                 </ul>
+                 <button className="w-full py-4 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition shadow-lg">Hemen Başla</button>
+              </div>
+
+              {/* Plan 3 */}
+              <div className="p-8 rounded-[2rem] bg-white border border-gray-100 hover:border-gray-200 transition hover:shadow-xl flex flex-col">
+                 <h3 className="text-xl font-bold text-gray-500 mb-2">Ajans / Toptan</h3>
+                 <div className="text-5xl font-extrabold text-gray-900 mb-6">₺2.499<span className="text-sm font-normal text-gray-400">/ay</span></div>
+                 <ul className="space-y-4 text-sm text-gray-600 mb-8 flex-1">
+                   <li className="flex gap-3">✓ 1000 Fotoğraf İşleme</li>
+                   <li className="flex gap-3">✓ API Erişimi</li>
+                   <li className="flex gap-3">✓ Özel Manken Tasarımı</li>
+                 </ul>
+                 <button className="w-full py-4 rounded-xl bg-gray-50 font-bold text-gray-900 hover:bg-gray-100 transition">İletişime Geç</button>
+              </div>
+           </div>
+        </div>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section className="py-24 px-4 max-w-3xl mx-auto">
+         <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">Sıkça Sorulan Sorular</h2>
+         <div className="space-y-4">
+            {[
+              {q: "Fotoğrafları telefonla çeksem yeterli mi?", a: "Kesinlikle! Sistemin en büyük özelliği bu. Profesyonel kameraya gerek yok, telefonla çektiğiniz net fotoğraflar yeterlidir."},
+              {q: "Mankenlerin yüzleri telifli mi?", a: "Hayır. Mankenlerimiz tamamen yapay zeka tarafından üretilmiş, gerçekte var olmayan kişilerdir. Telif sorunu yaşamadan her yerde kullanabilirsiniz."},
+              {q: "Kullanılmayan krediler devrediyor mu?", a: "Evet, bir sonraki aya devreden kredi sistemimiz mevcuttur."},
+              {q: "Ücretsiz deneme süresi var mı?", a: "Evet, kayıt olan herkese sistemimizi test etmeleri için 5 kredi hediye ediyoruz."}
+            ].map((item, i) => (
+              <div key={i} className="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                 <button onClick={() => toggleFaq(i)} className="w-full flex justify-between items-center p-6 text-left hover:bg-gray-50 transition">
+                    <span className="font-bold text-gray-800">{item.q}</span>
+                    <span className="text-2xl text-gray-400 font-light">{openFaq === i ? "−" : "+"}</span>
+                 </button>
+                 {openFaq === i && (
+                   <div className="p-6 pt-0 text-gray-600 text-sm leading-relaxed bg-white">
+                     {item.a}
+                   </div>
+                 )}
+              </div>
+            ))}
+         </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-white pt-24 pb-12 border-t border-gray-100">
+         <div className="max-w-7xl mx-auto px-4 text-center">
+            <h2 className="text-4xl font-extrabold text-gray-900 mb-6 tracking-tight">Prodüksiyon Maliyetlerini Sıfırlayın.</h2>
+            <p className="text-gray-500 mb-10 text-lg max-w-2xl mx-auto">
+              Bugün ücretsiz katılın, kredi kartı gerekmeden ilk ürününüzü 2 dakika içinde mankene giydirin.
+            </p>
+            <Link href="/login" className="inline-block px-12 py-5 bg-black text-white font-bold text-lg rounded-full hover:bg-gray-800 transition shadow-2xl hover:-translate-y-1 hover:shadow-black/20">
+               Ücretsiz Hesabını Oluştur 🚀
+            </Link>
+            
+            <div className="mt-24 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
+               <div className="mb-4 md:mb-0">
+                  <span className="font-bold text-gray-900">butikmodel.com</span> © 2026
+               </div>
+               <div className="flex gap-8">
+                  <Link href="/legal/privacy" className="hover:text-gray-900 transition-colors">Gizlilik</Link>
+                  <Link href="/legal/terms" className="hover:text-gray-900 transition-colors">Şartlar</Link>
+                  <Link href="/contact" className="hover:text-gray-900 transition-colors">İletişim</Link>
+               </div>
+            </div>
+         </div>
+      </footer>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: components/Background.tsx
+================================================================================
+export default function Background() {
+  return (
+    <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-gray-50">
+      {/* Mor Top */}
+      <div className="absolute top-0 left-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+      {/* Sarı Top */}
+      <div className="absolute top-0 right-[-10%] w-96 h-96 bg-yellow-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+      {/* Pembe Top */}
+      <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: components/Sidebar.tsx
+================================================================================
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Prop ekledik: onClose (Mobilde menüyü kapatmak için)
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  
+  const [credits, setCredits] = useState<number | string>("-");
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  useEffect(() => {
+    const initData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserEmail(session.user.email || "");
+        try {
+            const { data } = await supabase.from("profiles").select("credits").eq("id", session.user.id).single();
+            setCredits(data ? data.credits : 0);
+        } catch (e) { console.log("Profil hatası"); }
+      }
+    };
+    initData();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const icons = {
+    home: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>,
+    studio: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>,
+    ghost: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
+    models: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>,
+    faceScan: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>,
+    text: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>,
+    bg: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>,
+    profile: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>,
+    settings: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>,
+    logout: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+  };
+
+  const menuGroups = [
+    { title: "ANA MENÜ", items: [{ name: "Genel Bakış", href: "/dashboard", icon: icons.home }] },
+    { title: "ÜRETİM ARAÇLARI", items: [
+        { name: "Sanal Stüdyo", href: "/dashboard/studio", icon: icons.studio },
+        { name: "Hayalet Manken", href: "/dashboard/ghost", icon: icons.ghost },
+        { name: "Atmosfer Sihirbazı", href: "/dashboard/background", icon: icons.bg },
+        { name: "Metin Yazarı", href: "/dashboard/copywriter", icon: icons.text },
+    ]},
+    { title: "KÜTÜPHANE", items: [
+        { name: "Mankenlerim", href: "/dashboard/my-models", icon: icons.models },
+        { name: "Dijital İkiz (YENİ)", href: "/dashboard/train-model", icon: icons.faceScan },
+    ]},
+    { title: "HESAP", items: [
+        { name: "Cüzdan & Profil", href: "/dashboard/profile", icon: icons.profile },
+        { name: "Ayarlar", href: "/dashboard/settings", icon: icons.settings },
+    ]}
+  ];
+
+  return (
+    <div className="h-full bg-[#0a0a0a] text-gray-400 flex flex-col justify-between border-r border-gray-900 overflow-y-auto custom-scrollbar">
+      <div className="p-4">
+        {/* MOBİL İÇİN KAPATMA BUTONU */}
+        <div className="flex justify-between items-center mb-8 px-2">
+           <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-black font-extrabold text-lg shadow-[0_0_15px_rgba(255,255,255,0.3)]">B</div>
+             <span className="font-bold text-lg text-white tracking-tight">butikmodel.ai</span>
+           </div>
+           {onClose && (
+             <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-white">✕</button>
+           )}
+        </div>
+
+        <div className="space-y-6">
+          {menuGroups.map((group, groupIndex) => (
+            <div key={groupIndex}>
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 mb-2">{group.title}</h3>
+              <nav className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose} // Mobilde tıklayınca menü kapansın
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${isActive ? "bg-white text-black shadow-lg shadow-white/10" : "hover:bg-gray-900 hover:text-white"}`}
+                    >
+                      <span className={`${isActive ? "text-black" : "text-gray-500 group-hover:text-white"}`}>{item.icon}</span>
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-4 bg-[#0a0a0a] border-t border-gray-900">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700/50 shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><span className="text-4xl">⚡️</span></div>
+          <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">BAKİYE</p>
+          <div className="flex justify-between items-end">
+             <span className="text-xl font-bold text-white tracking-tight">{credits}</span>
+             <Link href="/dashboard/profile" className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded transition-colors" onClick={onClose}>YÜKLE</Link>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-2">
+           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{userEmail.charAt(0).toUpperCase()}</div>
+           <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{userEmail.split('@')[0]}</p>
+              <p className="text-[10px] text-gray-600 truncate">Ücretsiz Plan</p>
+           </div>
+           <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors p-1" title="Çıkış Yap">{icons.logout}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+================================================================================
+DOSYA YOLU: lib/supabase.ts
+================================================================================
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+
+================================================================================
+DOSYA YOLU: next-env.d.ts
+================================================================================
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/dev/types/routes.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+
+================================================================================
+DOSYA YOLU: next.config.ts
+================================================================================
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  typescript: {
+    // Tip hataları yüzünden üretimi durdurma
+    ignoreBuildErrors: true,
+  },
+  // eslint bloğunu kaldırdık çünkü Next.js 16'da hata verdiriyor
+};
+
+export default nextConfig;
+
+
+================================================================================
+DOSYA YOLU: package.json
+================================================================================
+{
+  "name": "butikmodel-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "framer-motion": "^12.26.2",
+    "next": "16.1.1",
+    "nextjs-toploader": "^3.9.17",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "replicate": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/estree": "^1.0.8",
+    "@types/json-schema": "^7.0.15",
+    "@types/node": "^20.19.30",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  }
+}
+
+
+
+================================================================================
+DOSYA YOLU: postcss.config.js
+================================================================================
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+
+
+================================================================================
+DOSYA YOLU: tailwind.config.js
+================================================================================
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      animation: {
+        blob: "blob 7s infinite", // <-- Işıkların yüzme hızı
+      },
+      keyframes: {
+        blob: {
+          "0%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+          "33%": {
+            transform: "translate(30px, -50px) scale(1.1)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) scale(0.9)",
+          },
+          "100%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+        },
+      },
+    },
+  },
+  plugins: [],
+}
+
+
+================================================================================
+DOSYA YOLU: tsconfig.json
+================================================================================
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+, "tailwind.config.ts"  ],
+  "exclude": ["node_modules"]
+}
+
+

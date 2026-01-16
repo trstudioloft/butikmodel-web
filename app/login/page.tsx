@@ -4,10 +4,11 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Logo from "@/components/Logo"; // LOGO EKLENDİ
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false); // Giriş mi, Kayıt mı?
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -23,7 +24,6 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // KAYIT OLMA İŞLEMİ
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -31,13 +31,12 @@ export default function LoginPage() {
         if (error) throw error;
         setSuccessMsg("Kayıt başarılı! Lütfen e-posta adresinize gelen onay linkine tıklayın.");
       } else {
-        // GİRİŞ YAPMA İŞLEMİ
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push("/dashboard"); // Başarılıysa panele at
+        router.push("/dashboard");
       }
     } catch (error: any) {
       setErrorMsg(error.message || "Bir hata oluştu.");
@@ -47,9 +46,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white font-sans text-gray-900">
       
-      {/* SOL: GÖRSEL ALANI (MOBİLDE GİZLENEBİLİR) */}
+      {/* SOL: GÖRSEL ALANI */}
       <div className="hidden lg:flex flex-col justify-between bg-black text-white p-12 relative overflow-hidden">
         {/* Arkaplan Görseli */}
         <div className="absolute inset-0 z-0 opacity-60">
@@ -61,9 +60,11 @@ export default function LoginPage() {
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black z-10"></div>
 
-        {/* Logo */}
+        {/* LOGO (Sol Üst - Beyaz) */}
         <div className="relative z-20 flex items-center gap-2">
-           <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-black font-bold text-xl">B</div>
+           <div className="w-10 h-10">
+              <Logo dark={true} />
+           </div>
            <span className="font-bold text-xl tracking-tight">butikmodel.ai</span>
         </div>
 
@@ -83,10 +84,19 @@ export default function LoginPage() {
       </div>
 
       {/* SAĞ: FORM ALANI */}
-      <div className="flex items-center justify-center p-8 lg:p-24">
+      <div className="flex items-center justify-center p-8 lg:p-24 relative">
+        
+        {/* MOBİL HEADER (Sadece Mobilde Görünür) */}
+        <div className="absolute top-6 left-6 lg:hidden flex items-center gap-2">
+           <div className="w-8 h-8">
+              <Logo />
+           </div>
+           <span className="font-bold text-lg">butikmodel.ai</span>
+        </div>
+
         <div className="w-full max-w-md space-y-8">
            
-           <div className="text-center lg:text-left">
+           <div className="text-center lg:text-left mt-10 lg:mt-0">
               <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                 {isSignUp ? "Hesap Oluştur 🚀" : "Tekrar Hoşgeldin 👋"}
               </h2>
@@ -121,7 +131,12 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
+                <div className="flex justify-between items-center mb-1">
+                   <label className="block text-sm font-medium text-gray-700">Şifre</label>
+                   {!isSignUp && (
+                     <Link href="#" className="text-xs font-bold text-blue-600 hover:underline">Şifremi Unuttum?</Link>
+                   )}
+                </div>
                 <input 
                   type="password" 
                   required 

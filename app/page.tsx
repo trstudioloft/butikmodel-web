@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import Logo from "@/components/Logo"; // LOGO EKLENDİ
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("studio");
@@ -18,8 +19,11 @@ export default function Home() {
       {/* NAVBAR */}
       <nav className="fixed top-0 w-full bg-white/70 backdrop-blur-xl z-50 border-b border-gray-100/50 transition-all">
         <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">B</div>
+          <div className="flex items-center gap-3">
+            {/* YENİ LOGO ENTEGRASYONU */}
+            <div className="w-9 h-9">
+               <Logo />
+            </div>
             <span className="font-bold text-xl tracking-tight text-gray-900">butikmodel<span className="text-gray-400">.com</span></span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
@@ -284,7 +288,7 @@ export default function Home() {
       <section id="pricing" className="py-32 bg-[#fafafa]">
         <div className="max-w-7xl mx-auto px-4">
            <div className="text-center mb-20">
-             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Şeffaf Fiyatlandırma</h2>
+             <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Basit ve Şeffaf Fiyatlandırma</h2>
              <p className="text-gray-500 text-lg">Gizli ücret yok. Fotoğrafçı masrafının 10'da 1'i.</p>
            </div>
 

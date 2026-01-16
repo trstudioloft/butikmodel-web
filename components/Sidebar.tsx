@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Logo from "@/components/Logo"; // LOGO EKLENDİ
 
+// Supabase bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Prop ekledik: onClose (Mobilde menüyü kapatmak için)
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -21,12 +22,21 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     const initData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
         setUserEmail(session.user.email || "");
+
         try {
-            const { data } = await supabase.from("profiles").select("credits").eq("id", session.user.id).single();
+            const { data } = await supabase
+            .from("profiles")
+            .select("credits")
+            .eq("id", session.user.id)
+            .single();
+
             setCredits(data ? data.credits : 0);
-        } catch (e) { console.log("Profil hatası"); }
+        } catch (e) {
+            console.log("Profil tablosu henüz hazır değil.");
+        }
       }
     };
     initData();
@@ -37,6 +47,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
     router.push("/login");
   };
 
+  // İKONLAR
   const icons = {
     home: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>,
     studio: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>,
@@ -51,41 +62,66 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
   };
 
   const menuGroups = [
-    { title: "ANA MENÜ", items: [{ name: "Genel Bakış", href: "/dashboard", icon: icons.home }] },
-    { title: "ÜRETİM ARAÇLARI", items: [
+    {
+      title: "ANA MENÜ",
+      items: [
+        { name: "Genel Bakış", href: "/dashboard", icon: icons.home },
+      ]
+    },
+    {
+      title: "ÜRETİM ARAÇLARI",
+      items: [
         { name: "Sanal Stüdyo", href: "/dashboard/studio", icon: icons.studio },
         { name: "Hayalet Manken", href: "/dashboard/ghost", icon: icons.ghost },
         { name: "Atmosfer Sihirbazı", href: "/dashboard/background", icon: icons.bg },
         { name: "Metin Yazarı", href: "/dashboard/copywriter", icon: icons.text },
-    ]},
-    { title: "KÜTÜPHANE", items: [
+      ]
+    },
+    {
+      title: "KÜTÜPHANE",
+      items: [
         { name: "Mankenlerim", href: "/dashboard/my-models", icon: icons.models },
         { name: "Dijital İkiz (YENİ)", href: "/dashboard/train-model", icon: icons.faceScan },
-    ]},
-    { title: "HESAP", items: [
+      ]
+    },
+    {
+      title: "HESAP",
+      items: [
         { name: "Cüzdan & Profil", href: "/dashboard/profile", icon: icons.profile },
         { name: "Ayarlar", href: "/dashboard/settings", icon: icons.settings },
-    ]}
+      ]
+    }
   ];
 
   return (
-    <div className="h-full bg-[#0a0a0a] text-gray-400 flex flex-col justify-between border-r border-gray-900 overflow-y-auto custom-scrollbar">
+    <div className="w-64 bg-[#0a0a0a] text-gray-400 h-screen flex flex-col justify-between border-r border-gray-900 flex-shrink-0 sticky top-0 overflow-y-auto custom-scrollbar">
+      
+      {/* ÜST KISIM */}
       <div className="p-4">
-        {/* MOBİL İÇİN KAPATMA BUTONU */}
-        <div className="flex justify-between items-center mb-8 px-2">
-           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-black font-extrabold text-lg shadow-[0_0_15px_rgba(255,255,255,0.3)]">B</div>
-             <span className="font-bold text-lg text-white tracking-tight">butikmodel.ai</span>
+        
+        {/* MOBİL KAPATMA (Opsiyonel) */}
+        {onClose && (
+           <div className="lg:hidden flex justify-end mb-4">
+              <button onClick={onClose} className="text-white">✕</button>
            </div>
-           {onClose && (
-             <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-white">✕</button>
-           )}
+        )}
+
+        {/* LOGO */}
+        <div className="mb-8 px-2 flex items-center gap-3">
+          {/* YENİ LOGO ENTEGRASYONU (Dark Mode) */}
+          <div className="w-8 h-8">
+             <Logo dark={true} />
+          </div>
+          <span className="font-bold text-lg text-white tracking-tight">butikmodel.ai</span>
         </div>
 
+        {/* MENÜ GRUPLARI */}
         <div className="space-y-6">
           {menuGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
-              <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 mb-2">{group.title}</h3>
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 mb-2">
+                {group.title}
+              </h3>
               <nav className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = pathname === item.href;
@@ -93,10 +129,16 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
                     <Link
                       key={item.href}
                       href={item.href}
-                      onClick={onClose} // Mobilde tıklayınca menü kapansın
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${isActive ? "bg-white text-black shadow-lg shadow-white/10" : "hover:bg-gray-900 hover:text-white"}`}
+                      onClick={onClose} // Mobilde tıklanınca menü kapansın
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${
+                        isActive 
+                        ? "bg-white text-black shadow-lg shadow-white/10" 
+                        : "hover:bg-gray-900 hover:text-white"
+                      }`}
                     >
-                      <span className={`${isActive ? "text-black" : "text-gray-500 group-hover:text-white"}`}>{item.icon}</span>
+                      <span className={`${isActive ? "text-black" : "text-gray-500 group-hover:text-white"}`}>
+                          {item.icon}
+                      </span>
                       <span>{item.name}</span>
                     </Link>
                   );
@@ -107,23 +149,41 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
       
+      {/* ALT KISIM: KREDİ & PROFİL */}
       <div className="p-4 space-y-4 bg-[#0a0a0a] border-t border-gray-900">
+        
+        {/* CÜZDAN KARTI */}
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700/50 shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><span className="text-4xl">⚡️</span></div>
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+             <span className="text-4xl">⚡️</span>
+          </div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">BAKİYE</p>
           <div className="flex justify-between items-end">
              <span className="text-xl font-bold text-white tracking-tight">{credits}</span>
-             <Link href="/dashboard/profile" className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded transition-colors" onClick={onClose}>YÜKLE</Link>
+             <Link href="/dashboard/profile" className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded transition-colors" onClick={onClose}>
+                YÜKLE
+             </Link>
           </div>
         </div>
+
+        {/* KULLANICI PROFİLİ */}
         <div className="flex items-center gap-3 px-2">
-           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{userEmail.charAt(0).toUpperCase()}</div>
+           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {userEmail.charAt(0).toUpperCase()}
+           </div>
            <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate">{userEmail.split('@')[0]}</p>
               <p className="text-[10px] text-gray-600 truncate">Ücretsiz Plan</p>
            </div>
-           <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors p-1" title="Çıkış Yap">{icons.logout}</button>
+           <button 
+             onClick={handleLogout}
+             className="text-gray-500 hover:text-red-500 transition-colors p-1"
+             title="Çıkış Yap"
+           >
+              {icons.logout}
+           </button>
         </div>
+
       </div>
     </div>
   );
