@@ -5,13 +5,102 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
+// DİL KÜTÜPHANESİ
+const TRANSLATIONS = {
+  tr: {
+    title: "Akıllı Metin Yazarı ✍️",
+    desc: "Görseli yükle, yapay zeka satış odaklı açıklamanı yazsın.",
+    uploadTitle: "1. Ürün Görseli",
+    dropText: "Analiz Edilecek Fotoğrafı Seç",
+    uploading: "Yükleniyor...",
+    settingsTitle: "2. Hedef Kitle & Ton",
+    platformLabel: "Platform",
+    toneLabel: "Yazı Dili",
+    tones: [
+      { value: "samimi", label: "Samimi & Emoji Dolu 🚀" },
+      { value: "kurumsal", label: "Resmi & Teknik Detaylı 👔" },
+      { value: "hype", label: "Heyecanlı & Kampanya Odaklı 🔥" }
+    ],
+    buttonIdle: "✨ Metni Oluştur (1 Kredi)",
+    buttonProcessing: "Yazar Düşünüyor...",
+    copy: "Kopyala",
+    placeholder: "Yapay zeka sonucu buraya yazacak...",
+    analyzing: "Kelimeler seçiliyor...",
+    alertUpload: "Lütfen görselin yüklenmesini bekleyin.",
+    alertCopied: "Metin kopyalandı! 🎉",
+    statusLoading: "Görsel analiz için yükleniyor...",
+    statusReady: "✅ Görsel Hazır!",
+    statusWriting: "Yapay Zeka Metni Yazıyor...",
+    statusDone: "✨ Metin Hazır!"
+  },
+  en: {
+    title: "AI Copywriter ✍️",
+    desc: "Upload image, let AI write sales-focused captions.",
+    uploadTitle: "1. Product Image",
+    dropText: "Select Photo to Analyze",
+    uploading: "Uploading...",
+    settingsTitle: "2. Target & Tone",
+    platformLabel: "Platform",
+    toneLabel: "Tone of Voice",
+    tones: [
+      { value: "friendly", label: "Friendly & Emoji Rich 🚀" },
+      { value: "professional", label: "Formal & Technical 👔" },
+      { value: "hype", label: "Hype & Sales Focus 🔥" }
+    ],
+    buttonIdle: "✨ Generate Text (1 Credit)",
+    buttonProcessing: "AI is Thinking...",
+    copy: "Copy",
+    placeholder: "AI will write the result here...",
+    analyzing: "Selecting words...",
+    alertUpload: "Please wait for the image to upload.",
+    alertCopied: "Text copied! 🎉",
+    statusLoading: "Uploading for analysis...",
+    statusReady: "✅ Image Ready!",
+    statusWriting: "AI is Writing...",
+    statusDone: "✨ Text Ready!"
+  },
+  ar: {
+    title: "كاتب النصوص الذكي ✍️",
+    desc: "قم بتحميل الصورة، ودع الذكاء الاصطناعي يكتب وصفًا يركز على المبيعات.",
+    uploadTitle: "1. صورة المنتج",
+    dropText: "اختر صورة للتحليل",
+    uploading: "جارٍ التحميل...",
+    settingsTitle: "2. الهدف والنبرة",
+    platformLabel: "المنصة",
+    toneLabel: "نبرة الصوت",
+    tones: [
+      { value: "friendly", label: "ودود وغني بالرموز التعبيرية 🚀" },
+      { value: "professional", label: "رسمي وتقني 👔" },
+      { value: "hype", label: "حماسي ومركّز على المبيعات 🔥" }
+    ],
+    buttonIdle: "✨ إنشاء النص (1 رصيد)",
+    buttonProcessing: "الذكاء الاصطناعي يفكر...",
+    copy: "نسخ",
+    placeholder: "سيكتب الذكاء الاصطناعي النتيجة هنا...",
+    analyzing: "جاري اختيار الكلمات...",
+    alertUpload: "يرجى انتظار تحميل الصورة.",
+    alertCopied: "تم نسخ النص! 🎉",
+    statusLoading: "جارٍ التحميل للتحليل...",
+    statusReady: "✅ الصورة جاهزة!",
+    statusWriting: "الذكاء الاصطناعي يكتب...",
+    statusDone: "✨ النص جاهز!"
+  }
+};
+
 export default function CopywriterPage() {
   const [user, setUser] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  // DİL AYARI (Varsayılan Türkçe)
+  const [lang, setLang] = useState<'tr' | 'en' | 'ar'>('tr');
+  const t = TRANSLATIONS[lang]; // Seçili dilin kelimeleri
+
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null); 
+  const [publicUrl, setPublicUrl] = useState<string | null>(null); 
   const [platform, setPlatform] = useState("instagram");
-  const [tone, setTone] = useState("samimi");
+  const [tone, setTone] = useState(lang === 'tr' ? 'samimi' : 'friendly');
   const [generatedText, setGeneratedText] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -26,86 +115,150 @@ export default function CopywriterPage() {
     getUser();
   }, [router]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Dil değişince ton varsayılanını güncelle
+  useEffect(() => {
+    setTone(lang === 'tr' ? 'samimi' : 'friendly');
+  }, [lang]);
+
+  // --- 1. RESİM YÜKLEME ---
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
+    
     setUploadedImage(URL.createObjectURL(file));
     setGeneratedText("");
-  };
-
-  const handleGenerate = async () => {
-    if (!uploadedImage || !user) return;
-    setProcessing(true);
+    setUploading(true);
+    setStatusMessage(t.statusLoading);
 
     try {
-      // SİMÜLASYON
-      setTimeout(async () => {
-        let demoText = "";
-        
-        if (platform === "instagram") {
-            demoText = `✨ Bu sezonun favori parçası stoklarda! ✨\n\nKombinlerinize şıklık katacak bu özel tasarım, hem günlük kullanımda hem de özel davetlerde kurtarıcınız olacak. Yumuşak dokusu ve modern kesimiyle üzerinizden çıkarmak istemeyeceksiniz. 😍\n\n✅ Sınırlı stok\n✅ Hızlı kargo\n✅ Şeffaf kargo imkanı\n\n👇 Sipariş için DM veya link profilde!\n\n#moda #trend #kombin #yenisezon #butik #tarz`;
-        } else if (platform === "trendyol") {
-            demoText = `Ürün Özellikleri:\n- Kumaş Tipi: %100 Pamuklu Dokuma\n- Kalıp: Regular Fit (Rahat Kesim)\n- Manken Bilgisi: Boy: 1.75, Kilo: 58, Beden: S\n\nGünlük kullanıma uygun, terletmeyen özel kumaşı ile gün boyu konfor sağlar. 30 derecede yıkanması önerilir. Türkiye'de üretilmiştir.\n\nSEO Anahtar Kelimeler: Kadın giyim, yazlık elbise, pamuklu tişört, günlük kombin.`;
-        } else {
-            demoText = `Global Trend Alert! 🌍\n\nDiscover the ultimate comfort meets style. Perfect for your capsule wardrobe. \n\n🌿 Sustainable materials\n✈️ Worldwide Shipping\n\nShop now at butikmodel.ai`;
-        }
+      const fileExt = file.name.split('.').pop();
+      const fileName = `copy-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
-        setGeneratedText(demoText);
-        setProcessing(false);
-      }, 2500);
+      const { error: uploadError } = await supabase.storage.from('uploads').upload(filePath, file);
+      if (uploadError) throw uploadError;
 
-    } catch (error) {
+      const { data: { publicUrl } } = supabase.storage.from('uploads').getPublicUrl(filePath);
+
+      setPublicUrl(publicUrl);
+      setStatusMessage(t.statusReady);
+
+    } catch (error: any) {
+      alert("Error: " + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // --- 2. MOTORU ÇALIŞTIR ---
+  const handleGenerate = async () => {
+    if (!publicUrl) { alert(t.alertUpload); return; }
+    
+    setProcessing(true);
+    setGeneratedText("");
+    setStatusMessage(t.statusWriting);
+
+    try {
+      // Dil bilgisini API'ye gönderiyoruz
+      const promptLanguage = lang === 'tr' ? 'Turkish' : lang === 'ar' ? 'Arabic' : 'English';
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "copywriter",
+          imageUrl: publicUrl,
+          // Promptu seçili dile göre dinamik oluşturuyoruz
+          prompt: `Write a ${tone} caption for ${platform} in ${promptLanguage}. Use relevant emojis and hashtags.` 
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed.");
+
+      setGeneratedText(data.output);
+      setStatusMessage(t.statusDone);
+
+    } catch (error: any) {
+      alert("AI Error: " + error.message);
+      setStatusMessage("❌ Error");
+    } finally {
       setProcessing(false);
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedText);
-    alert("Metin kopyalandı! 🎉");
+    alert(t.alertCopied);
   };
 
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      // Arapça ise yönü sağdan sola çevir (RTL)
+      dir={lang === 'ar' ? 'rtl' : 'ltr'} 
       className="p-6 md:p-10 min-h-screen font-sans pb-20 max-w-[1600px] mx-auto"
     >
-      <div className="mb-10">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Akıllı Metin Yazarı ✍️</h1>
-        <p className="text-gray-500 mt-2 text-lg">Görseli yükle, yapay zeka satış odaklı açıklamanı yazsın.</p>
+      
+      {/* ÜST BAŞLIK VE DİL SEÇİMİ */}
+      <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">{t.title}</h1>
+          <p className="text-gray-500 mt-2 text-lg">{t.desc}</p>
+        </div>
+        
+        {/* DİL DEĞİŞTİRİCİ */}
+        <div className="flex bg-gray-100 p-1 rounded-xl">
+           <button onClick={() => setLang('tr')} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${lang === 'tr' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>🇹🇷 TR</button>
+           <button onClick={() => setLang('en')} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${lang === 'en' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>🇬🇧 EN</button>
+           <button onClick={() => setLang('ar')} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${lang === 'ar' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>🇸🇦 AR</button>
+        </div>
       </div>
+
+      {statusMessage && (
+         <div className="mb-6 text-sm font-bold bg-yellow-50 text-yellow-600 px-4 py-2 rounded-full animate-pulse w-fit">
+            ℹ️ {statusMessage}
+         </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* SOL: GİRDİLER (BENTO) */}
+        {/* SOL: GİRDİLER */}
         <div className="space-y-6">
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100 relative overflow-hidden group">
-            <h3 className="font-bold text-gray-900 mb-6 text-lg">1. Ürün Görseli</h3>
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">{t.uploadTitle}</h3>
             
             <div 
-              onClick={() => fileInputRef.current?.click()}
-              className={`relative h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/20'}`}
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={`relative h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden bg-gray-50 ${uploadedImage ? 'border-green-500' : 'border-gray-200 hover:border-yellow-500 hover:bg-yellow-50/20'} ${uploading ? 'opacity-50' : ''}`}
             >
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-              {uploadedImage ? (
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={uploading} />
+              
+              {uploading ? (
+                 <div className="flex flex-col items-center">
+                    <span className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-2"></span>
+                    <span className="text-xs font-bold text-yellow-600">{t.uploading}</span>
+                 </div>
+              ) : uploadedImage ? (
                 <img src={uploadedImage} className="w-full h-full object-contain p-2" />
               ) : (
                 <div className="text-center p-6">
                   <span className="text-5xl block mb-3 opacity-30">📷</span>
-                  <p className="text-sm font-bold text-gray-400">Analiz Edilecek Fotoğrafı Seç</p>
+                  <p className="text-sm font-bold text-gray-400">{t.dropText}</p>
                 </div>
               )}
             </div>
           </div>
 
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-100">
-            <h3 className="font-bold text-gray-900 mb-6 text-lg">2. Hedef Kitle & Ton</h3>
+            <h3 className="font-bold text-gray-900 mb-6 text-lg">{t.settingsTitle}</h3>
             
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Platform</label>
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">{t.platformLabel}</label>
                 <div className="flex gap-3">
-                  {['instagram', 'trendyol', 'global'].map((p) => (
+                  {['Instagram', 'Trendyol', 'Etsy', 'LinkedIn'].map((p) => (
                     <button 
                       key={p}
                       onClick={() => setPlatform(p)}
@@ -118,30 +271,35 @@ export default function CopywriterPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Yazı Dili</label>
+                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">{t.toneLabel}</label>
                 <select 
                   className="w-full p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm font-medium focus:ring-2 focus:ring-yellow-400 outline-none appearance-none"
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
                 >
-                  <option value="samimi">Samimi & Emoji Dolu 🚀</option>
-                  <option value="kurumsal">Resmi & Teknik Detaylı 👔</option>
-                  <option value="hype">Heyecanlı & Kampanya Odaklı 🔥</option>
+                  {t.tones.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
             <button 
               onClick={handleGenerate}
-              disabled={!uploadedImage || processing}
+              disabled={!publicUrl || processing}
               className="w-full mt-8 bg-yellow-500 text-black py-4 rounded-xl font-bold shadow-lg hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 hover:scale-[1.02]"
             >
-              {processing ? "Yazar Düşünüyor..." : "✨ Metni Oluştur (1 Kredi)"}
+              {processing ? (
+                 <>
+                   <span className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                   {t.buttonProcessing}
+                 </>
+              ) : t.buttonIdle}
             </button>
           </div>
         </div>
 
-        {/* SAĞ: SONUÇ (NOT DEFTERİ GÖRÜNÜMÜ) */}
+        {/* SAĞ: SONUÇ */}
         <div className="bg-[#fff9c4]/10 rounded-[2.5rem] border border-yellow-100 p-2 h-full min-h-[600px] flex flex-col relative">
            <div className="absolute inset-0 bg-yellow-50/50 rounded-[2.5rem] -z-10"></div>
            
@@ -154,7 +312,7 @@ export default function CopywriterPage() {
                  </div>
                  {generatedText && (
                    <button onClick={copyToClipboard} className="text-xs bg-black text-white px-4 py-2 rounded-full font-bold hover:bg-gray-800 transition-colors flex items-center gap-2">
-                     📋 Kopyala
+                     📋 {t.copy}
                    </button>
                  )}
               </div>
@@ -163,21 +321,23 @@ export default function CopywriterPage() {
                  <textarea 
                    value={generatedText}
                    onChange={(e) => setGeneratedText(e.target.value)}
-                   placeholder="Yapay zeka sonucu buraya yazacak..."
+                   placeholder={t.placeholder}
+                   // Arapça için sağa yaslı yazması için dir kontrolü
+                   dir={lang === 'ar' ? 'rtl' : 'ltr'} 
                    className="w-full h-full p-2 bg-transparent border-none text-gray-700 text-lg leading-loose resize-none focus:ring-0 outline-none font-medium font-mono"
                  />
                  
                  {processing && (
                    <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm z-10">
                       <div className="text-5xl animate-bounce mb-4">✍️</div>
-                      <p className="text-gray-500 font-bold animate-pulse">Kelimeler seçiliyor...</p>
+                      <p className="text-gray-500 font-bold animate-pulse">{t.analyzing}</p>
                    </div>
                  )}
               </div>
               
               <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-xs text-gray-400 font-mono">
-                 <span>{generatedText.length} Karakter</span>
-                 <span>AI Copywriter v2.0</span>
+                 <span>{generatedText.length} Chars</span>
+                 <span>AI Copywriter Global v3.0</span>
               </div>
            </div>
         </div>
