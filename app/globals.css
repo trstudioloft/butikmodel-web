@@ -53,3 +53,29 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
 }
+
+/* --- ANIMASYONLAR --- */
+
+/* 1. Sonsuz Kayan Logo Şeridi */
+@keyframes infinite-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-infinite-scroll {
+  animation: infinite-scroll 20s linear infinite;
+}
+
+/* 2. Aurora (Kuzey Işıkları) Arka Plan Efekti */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 8s ease-in-out infinite;
+}
+
+/* 3. Görsel Maskeleme (Yumuşak Geçiş) */
+.mask-gradient-b {
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
