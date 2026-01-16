@@ -13,7 +13,6 @@ export default function StudioPage() {
   
   // Resimler
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [userPrompt, setUserPrompt] = useState("");
   
@@ -52,36 +51,57 @@ export default function StudioPage() {
     if (!event.target.files || !event.target.files[0]) return;
     const file = event.target.files[0];
     setUploadedImage(URL.createObjectURL(file));
-    setUploadedPath("demo_path.jpg"); 
   };
 
+  // --- GÜNCELLENEN KISIM: GERÇEK API BAĞLANTISI ---
   const handleGenerate = async () => {
     if (!selectedModel) { alert("Lütfen bir manken seçin!"); return; }
+    if (!uploadedImage) { alert("Lütfen bir kıyafet yükleyin!"); return; }
+    
     setProcessing(true);
-    setStatusMessage("Set hazırlanıyor...");
+    setStatusMessage("Yapay Zeka Motoruna Bağlanılıyor..."); // Kullanıcıya bilgi ver
 
     try {
+      // 1. Seçilen mankeni bul
       const allModels = [...systemModels, ...userModels, ...customFaceModels];
       const targetModel = allModels.find(m => m.id === selectedModel);
       
-      const finalPrompt = `Professional photo of model (${targetModel?.name}) wearing the uploaded cloth. Scene: ${userPrompt || "Studio"}.`;
-      console.log("🚀 KOMUT:", finalPrompt);
+      // 2. API'ye İstek At (Motoru Çalıştır)
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "studio",
+          // NOT: Faz 2 (Storage) yapılmadığı için şimdilik test resmi gönderiyoruz.
+          // Gerçek sistemde buraya 'uploadedImage'in storage linki gelecek.
+          imageUrl: "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/cloth.jpg", 
+          modelUrl: targetModel?.image_url || "https://replicate.delivery/pbxt/Kqz10aXfQYc1092837/model.jpg",
+          prompt: userPrompt
+        })
+      });
 
-      setStatusMessage("Sahne kuruluyor: " + (userPrompt || "Stüdyo Ortamı"));
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "İşlem başarısız.");
+      }
+
+      // 3. Sonucu Göster
+      setResultImage(data.output);
+      setStatusMessage("✅ Çekim Başarılı!");
       
-      const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
+      // 4. Kredi Düş (Opsiyonel: Bunu API tarafında yapmak daha güvenlidir)
+      /* const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
       if (profile) {
         await supabase.from("profiles").update({ credits: profile.credits - 1 }).eq("id", user.id);
       }
-
-      setTimeout(() => {
-        setResultImage("https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop");
-        setStatusMessage("✅ Çekim Tamamlandı!");
-        setProcessing(false);
-      }, 3000);
+      */
 
     } catch (error: any) {
-      alert("Hata: " + error.message);
+      // Hata Mesajını Ekrana Bas (Örn: Yetersiz Bakiye)
+      alert("⚠️ MOTOR DURUMU: " + error.message);
+      setStatusMessage("❌ İşlem Durduruldu.");
+    } finally {
       setProcessing(false);
     }
   };
@@ -244,7 +264,12 @@ export default function StudioPage() {
               disabled={!uploadedImage || !selectedModel || processing}
               className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-auto"
             >
-              {processing ? "Motor Çalışıyor..." : "🎬 Çekimi Başlat"}
+              {processing ? (
+                <div className="flex items-center justify-center gap-2">
+                   <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                   Motor Çalışıyor...
+                </div>
+              ) : "🎬 Çekimi Başlat"}
             </button>
           </div>
 
