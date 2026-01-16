@@ -4,11 +4,11 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Logo from "@/components/Logo"; // LOGO EKLENDİ
+import Logo from "@/components/Logo"; // Logo bileşeni eklendi
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false); // Giriş mi, Kayıt mı?
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -24,6 +24,7 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
+        // KAYIT OLMA İŞLEMİ
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -31,12 +32,13 @@ export default function LoginPage() {
         if (error) throw error;
         setSuccessMsg("Kayıt başarılı! Lütfen e-posta adresinize gelen onay linkine tıklayın.");
       } else {
+        // GİRİŞ YAPMA İŞLEMİ
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push("/dashboard");
+        router.push("/dashboard"); // Başarılıysa panele at
       }
     } catch (error: any) {
       setErrorMsg(error.message || "Bir hata oluştu.");
@@ -48,7 +50,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white font-sans text-gray-900">
       
-      {/* SOL: GÖRSEL ALANI */}
+      {/* SOL: GÖRSEL ALANI (MOBİLDE GİZLENİR) */}
       <div className="hidden lg:flex flex-col justify-between bg-black text-white p-12 relative overflow-hidden">
         {/* Arkaplan Görseli */}
         <div className="absolute inset-0 z-0 opacity-60">
@@ -65,7 +67,8 @@ export default function LoginPage() {
            <div className="w-10 h-10">
               <Logo dark={true} />
            </div>
-           <span className="font-bold text-xl tracking-tight">butikmodel.ai</span>
+           {/* DÜZELTME YAPILDI: .ai -> .com */}
+           <span className="font-bold text-xl tracking-tight">butikmodel.com</span>
         </div>
 
         {/* Mesaj */}
@@ -91,7 +94,8 @@ export default function LoginPage() {
            <div className="w-8 h-8">
               <Logo />
            </div>
-           <span className="font-bold text-lg">butikmodel.ai</span>
+           {/* DÜZELTME YAPILDI: .ai -> .com */}
+           <span className="font-bold text-lg">butikmodel.com</span>
         </div>
 
         <div className="w-full max-w-md space-y-8">
